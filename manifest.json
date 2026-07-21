@@ -1,0 +1,16 @@
+{
+  "name": "죠짐 노트",
+  "short_name": "죠짐 노트",
+  "description": "조짐 크로스핏 팀 훈련 기록 트래커",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a0a09",
+  "theme_color": "#0a0a09",
+  "orientation": "portrait",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

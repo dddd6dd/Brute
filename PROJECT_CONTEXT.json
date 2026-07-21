@@ -1,0 +1,151 @@
+{
+  "project_name": "수컷 프로그램 팀 기록 트래커 (jogym-crossfit)",
+  "description": "크로스핏 박스 '조짐(jogym)'에서 매일 게시되는 훈련 프로그램(WOD)을 팀원들이 기록하고, 서로 순위를 보고, 개인 이력을 관리하는 웹앱",
+  "live_url": "https://jogym-crossfit.netlify.app/",
+  "deployment": {
+    "frontend": "단일 HTML 파일(index.html)을 Netlify에 정적 배포. 빌드 과정 없음, 파일 하나가 곧 사이트 전체.",
+    "backend": "Supabase 프로젝트 하나 (Postgres DB + Edge Functions).",
+    "ai_parsing": "Supabase Edge Function('parse-wod')이 Gemini API를 프록시. API 키는 Supabase Secrets(GEMINI_API_KEY)에 저장, 브라우저에는 노출 안 됨."
+  },
+  "tech_stack": {
+    "frontend": "순수 HTML + Vanilla JS (프레임워크 없음), Chart.js(CDN)로 그래프",
+    "backend": "Supabase JS client(CDN import), Supabase Postgres, Supabase Edge Functions(Deno)",
+    "no_build_step": true,
+    "no_npm": true
+  },
+  "auth_model": {
+    "type": "간단한 클라이언트 사이드 비밀번호 체크 (진짜 인증 아님)",
+    "admin_password": "관리자 탭 진입 시 하드코딩된 문자열과 비교 (코드 내 ADMIN_PASSWORD 상수)",
+    "user_identification": "사용자는 로그인 없이 매번 자기 이름을 텍스트로 입력해서 기록. 이름 오타/중복 관리 안 됨(주의 필요)."
+  },
+  "app_tabs": [
+    {
+      "id": "log",
+      "label": "오늘 운동",
+      "purpose": "선택한 날짜에 게시된 프로그램 항목들을 보여주고, 사용자가 이름+기록을 입력해서 저장"
+    },
+    {
+      "id": "board",
+      "label": "전체 기록",
+      "purpose": "특정 날짜의 모든 사람 기록을 항목별로 모아 순위(리더보드) 형태로 표시"
+    },
+    {
+      "id": "profile",
+      "label": "선수 프로필",
+      "purpose": "이름별 개인 페이지: 주요 리프트 요약, 무게 계산기(퍼센트/단계증량/플레이트), 날짜별 기록 보기, 동작별 전체 기록+그래프"
+    },
+    {
+      "id": "admin",
+      "label": "관리자",
+      "purpose": "비밀번호로 보호됨. 오늘 프로그램 텍스트를 붙여넣어 (1)Gemini AI 자동 파싱 또는 (2)이미 파싱된 JSON 직접 게시. 게시된 프로그램 목록 확인/삭제도 가능"
+    }
+  ],
+  "supabase_tables": {
+    "note": "실제 컬럼 타입은 Supabase 대시보드 Table Editor에서 확인 권장. 아래는 프론트엔드 코드(index.html)의 sb.from(...) 호출 패턴에서 유추한 내용.",
+    "programs": {
+      "purpose": "특정 날짜에 게시된 훈련 프로그램 원문과 파싱된 항목 배열을 저장. 날짜당 1행(upsert onConflict: 'date').",
+      "columns_inferred": {
+        "date": "text 또는 date. Primary/unique key로 사용됨 (onConflict: 'date').",
+        "raw_text": "text. 관리자가 붙여넣은 프로그램 원문 그대로.",
+        "items": "jsonb. 파싱된 항목 배열. 스키마는 아래 'program_item_schema' 참고."
+      }
+    },
+    "records": {
+      "purpose": "사용자가 특정 날짜, 특정 항목에 대해 입력한 실제 기록. 한 사람이 하루에 여러 항목을 저장하면 여러 행이 생김 (라운드별 항목은 항목당 여러 행으로 더 쪼개짐).",
+      "columns_inferred": {
+        "id": "PK (uuid 또는 auto increment로 추정). delete/update 시 .eq('id', ...)로 사용됨.",
+        "date": "text/date. 어느 프로그램(programs.date)에 대한 기록인지.",
+        "name": "text. 기록을 남긴 사람 이름 (로그인 없음, 자유 입력).",
+        "item_name": "text. 어떤 항목에 대한 기록인지. barbell_conditioning/*_by_round 타입은 '원래이름 - 동작명' 또는 '원래이름 - N R' 형태로 하위 항목마다 별도 행 저장.",
+        "section": "text. 리더보드/날짜별 조회 시 섹션별로 그룹핑하는 데 사용.",
+        "type": "text. 'weight' | 'reps' | 'for_time' | 'status' 중 하나 (program_item의 type과는 다름 - 실제 저장되는 값의 형태를 나타내는 더 단순화된 타입).",
+        "value": "text. 실제 기록값. weight 타입은 항상 kg으로 환산되어 저장됨(문자열). for_time은 'MM:SS' 형식.",
+        "scaled": "boolean. '세부기록(스케일링)' 체크박스 여부.",
+        "scale_detail": "text. 세부기록 메모 또는 생략 사유 텍스트.",
+        "skipped": "boolean. 그날 이 항목을 생략했는지 여부."
+      }
+    },
+    "key_lifts": {
+      "purpose": "선수 프로필의 '주요 리프트' 요약값. 사람+동작 조합당 최신값 1행만 유지 (upsert onConflict: 'name,lift_name').",
+      "columns_inferred": {
+        "name": "text. 선수 이름.",
+        "lift_name": "text. 리프트 이름(백스쿼트, 데드리프트 등 자유 입력 가능).",
+        "value_kg": "numeric. 항상 kg 기준으로 저장.",
+        "updated_at": "timestamp."
+      }
+    },
+    "key_lift_history": {
+      "purpose": "key_lifts의 변경 이력 전체 (그래프용). key_lifts.value_kg을 갱신할 때마다 이 테이블에도 새 행을 insert.",
+      "columns_inferred": {
+        "name": "text.",
+        "lift_name": "text.",
+        "value_kg": "numeric.",
+        "recorded_date": "date. 사용자가 직접 입력하는 '이 기록의 날짜'.",
+        "created_at": "timestamp (자동 생성 추정, order by에서 사용됨)."
+      }
+    }
+  },
+  "program_item_schema": {
+    "description": "programs.items (jsonb 배열)에 들어가는 개별 항목의 스키마. 관리자가 JSON을 직접 붙여넣거나, parse-wod Edge Function이 Gemini로 이 형식을 생성함.",
+    "required_fields": ["section", "name", "type", "prescribed"],
+    "optional_fields": {
+      "subsection": "string. 소분류. 없으면 빈 문자열.",
+      "rounds": "number. type이 'amrap_by_round' | 'weight_by_round' | 'emom_by_round'일 때 필수.",
+      "movements": "string[]. type이 'barbell_conditioning'일 때 필수. 동작 이름 배열."
+    },
+    "valid_types": [
+      "weight",
+      "for_time",
+      "amrap",
+      "emom_complete",
+      "reps",
+      "barbell_conditioning",
+      "amrap_by_round",
+      "weight_by_round",
+      "emom_by_round"
+    ],
+    "type_meaning": {
+      "weight": "단일 무게 하나만 기록",
+      "for_time": "완료 시간(분:초) 기록",
+      "amrap": "총 개수/라운드 하나만 기록",
+      "amrap_by_round": "무게 고정, 라운드마다 개수만 다르게 기록 (rounds 필드 필요)",
+      "weight_by_round": "라운드마다 무게 자체가 바뀜, 라운드마다 무게 기록 (rounds 필드 필요)",
+      "emom_by_round": "라운드마다 언브로큰/브로큰 여부 기록 (rounds 필드 필요)",
+      "emom_complete": "EMOM 전체에 대해 완료/일부실패만 기록",
+      "reps": "숫자로 기록 가능한 단순 횟수",
+      "barbell_conditioning": "여러 바벨 동작이 섞인 컨디셔닝, 동작별로 무게 다름 (movements 필드 필요)"
+    },
+    "known_inconsistency": "Edge Function(parse-wod)의 Gemini 프롬프트가 한때 프론트엔드 스키마와 어긋나 있었음(구버전은 'progressive_weight' 타입을 쓰고 amrap_by_round/weight_by_round/emom_by_round가 없었음). 현재 supabase-functions/parse-wod.ts는 최신 9개 타입 기준으로 맞춰둔 상태이니, Supabase 대시보드에 배포된 실제 함수도 이 파일 내용으로 교체 필요."
+  },
+  "unit_system": {
+    "storage": "모든 무게는 DB에 항상 kg으로 저장됨 (weight_kg 형태 컬럼은 아니지만 값 자체가 kg 기준).",
+    "display_default": "lb 우선 표시 (localStorage 'weightUnit' 기본값 'lb'). 사용자가 kg으로 바꾸면 그 브라우저에서는 계속 kg으로 기억됨.",
+    "conversion_constant": "KG_PER_LB = 0.45359237"
+  },
+  "key_frontend_functions": {
+    "getPreferredUnit / setPreferredUnit": "localStorage 기반 단위 설정 관리",
+    "toKg / fromKg / formatWeight": "단위 변환 및 표시 (소수점 1자리로 반올림)",
+    "renderLogForm": "오늘 운동 탭의 입력 폼 렌더링, 항목 type별로 다른 input UI 생성",
+    "renderBoard / renderLeaderboardFor": "전체 기록 탭의 날짜별 리더보드",
+    "showProfileDetail / renderProfileBody": "선수 프로필 상세 페이지 (주요 리프트, 무게 계산기, 날짜별 기록, 동작별 기록 검색)",
+    "buildWeightCalcBox": "무게 계산기 UI (퍼센트 계산 + 단계별 증량 계산 + 바벨 플레이트 계산)",
+    "calcPlatesForWeight": "동적계획법(DP) 기반 바벨 플레이트 조합 계산기. 목표 무게에 그램 단위로 가장 근접한(살짝 초과도 허용) 원판 조합을 찾음",
+    "buildDateLookupBox": "프로필에서 날짜 선택 시 그날의 모든 기록을 프로그램 원본 순서대로 정렬해서 보여줌",
+    "validateProgramItems": "JSON 게시 전 항목 유효성 검사 (필수 필드, type 유효성, rounds/movements 필드 존재 여부)"
+  },
+  "gym_equipment": {
+    "bars": [
+      { "label": "남자바", "exact_weight": "45lb (20.4kg)" },
+      { "label": "여자바", "exact_weight": "35lb (15.9kg)" }
+    ],
+    "plates_lb": [10, 15, 25, 35, 45],
+    "plates_kg": [0.5, 1, 1.5, 2, 2.5, 5, 10, 15, 20, 25],
+    "note": "바벨 플레이트 계산기(calcPlatesForWeight)가 이 재고 목록을 기준으로 조합을 계산함. 재고가 바뀌면 index.html의 PLATE_INVENTORY, BAR_INVENTORY 상수를 수정해야 함."
+  },
+  "known_limitations": [
+    "사용자 이름이 자유 텍스트라 오타/중복 시 다른 사람으로 기록됨 (예: '민수' vs '민수 ' 공백 차이도 다른 사람 취급)",
+    "관리자 비밀번호가 클라이언트 사이드 문자열 비교라 개발자도구로 우회 가능 (진짜 보안 아님, 팀 내부용 가벼운 보호 장치)",
+    "record 삭제/수정은 프로필 페이지에서만 가능, 관리자가 대신 수정해주는 기능은 없음",
+    "같은 사람이 같은 항목을 실수로 두 번 저장해도 중복 방지 로직 없음 (수동으로 하나 삭제해야 함)"
+  ]
+}
