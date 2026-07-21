@@ -138,18 +138,42 @@
   .name-chip:hover { background: var(--surface-1); }
   .back-link { font-size:15px; color: var(--text-secondary); cursor: pointer; margin-bottom: 12px; display: inline-block; }
   .hero-card {
+    position: relative;
     display: flex; flex-direction: column; align-items: center; text-align: center;
     padding: 32px 20px; margin-bottom: 24px; gap: 6px;
   }
-  .hero-card .top-pill { margin-bottom: 12px; }
+  .hero-card .top-pill { position: absolute; top: -14px; left: 20px; margin-bottom: 0; }
   .hero-card h1 { font-size:30px; letter-spacing: -0.02em; }
   .hero-card .sub { margin: 0; }
+
+  .cal-cell {
+    font-family: var(--font-mono); text-align: center; font-size: 14px;
+    padding: 7px 0; border-radius: var(--radius); box-sizing: border-box;
+    color: var(--text-muted); position: relative; transition: background .15s;
+  }
+  .cal-cell.clickable { cursor: pointer; }
+  .cal-cell.available {
+    background: var(--surface-2);
+    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--border);
+    box-shadow: var(--card-shadow);
+    color: var(--text-primary); font-weight: 500;
+  }
+  .cal-cell.today::after {
+    content: ''; position: absolute; left: 50%; bottom: 3px; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%; background: var(--border-accent);
+  }
+  @keyframes calPop { from { transform: scale(0.92); } to { transform: scale(1.1); } }
+  .cal-cell.selected {
+    animation: calPop .22s cubic-bezier(.34,1.56,.64,1) forwards;
+    font-weight: 600; z-index: 1;
+  }
 </style>
 </head>
 <body>
 
-<div class="top-pill"><span class="dot"></span>FOR · JOGYM</div>
 <div class="hero-card card">
+  <div class="top-pill"><span class="dot"></span>FOR · JOGYM</div>
   <h1>Today's Workout</h1>
   <p class="sub">오늘 운동 항목을 확인하고 기록을 남겨보세요.</p>
 </div>
@@ -2036,20 +2060,11 @@ function buildCalendarPicker({ highlightedDates, initialDate, selectedDate, onSe
       const clickable = allowAllDays || isHighlighted;
 
       const cell = document.createElement('div');
-      cell.style.cssText = `font-family:var(--font-mono); text-align:center; font-size:14px; padding:6px 0; border-radius:var(--radius); cursor:${clickable ? 'pointer' : 'default'}; box-sizing:border-box;`;
-      if(isHighlighted){
-        cell.style.background = 'var(--bg-success)';
-        cell.style.color = 'var(--text-success)';
-        cell.style.fontWeight = '500';
-      } else if(!clickable){
-        cell.style.color = 'var(--text-muted)';
-      }
-      if(dateStr === todayStrVal){
-        cell.style.border = '1.5px solid var(--border-accent)';
-      }
-      if(dateStr === currentSelected){
-        cell.style.boxShadow = 'inset 0 0 0 2px var(--text-primary)';
-      }
+      cell.className = 'cal-cell';
+      if(clickable) cell.classList.add('clickable');
+      if(isHighlighted) cell.classList.add('available');
+      if(dateStr === todayStrVal) cell.classList.add('today');
+      if(dateStr === currentSelected) cell.classList.add('selected');
       cell.textContent = day;
       if(clickable){
         cell.onclick = ()=>{
