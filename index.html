@@ -30,6 +30,8 @@
     --bg-success: #EAF3DE; --text-success: #27500A;
     --bg-warning: #FAEEDA; --text-warning: #633806;
     --bg-danger: #FCEBEB; --text-danger: #791F1F;
+    --chart-accent: 74, 122, 181; --chart-grid: rgba(17,17,16,0.07);
+    --chart-tooltip-bg: rgba(24,24,22,0.86); --chart-tooltip-border: rgba(255,255,255,0.14);
     --radius: 10px; --radius-lg: 16px;
     --blur: blur(22px) saturate(180%);
     --card-shadow: 0 1px 0 rgba(255,255,255,0.5) inset, 0 8px 24px rgba(17,17,16,0.06);
@@ -43,6 +45,8 @@
       --bg-success: #17300a; --text-success: #9ad46a;
       --bg-warning: #3d2504; --text-warning: #f5b96b;
       --bg-danger: #401212; --text-danger: #f19a9a;
+      --chart-accent: 150, 189, 233; --chart-grid: rgba(255,255,255,0.08);
+      --chart-tooltip-bg: rgba(40,40,38,0.9); --chart-tooltip-border: rgba(255,255,255,0.16);
       --card-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 8px 24px rgba(0,0,0,0.35);
     }
   }
@@ -168,6 +172,10 @@
     animation: calPop .22s cubic-bezier(.34,1.56,.64,1) forwards;
     font-weight: 600; z-index: 1;
   }
+
+  @keyframes revealIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  .reveal-anim { animation: revealIn .18s ease; }
+  .fade-swap { animation: revealIn .22s ease; }
 </style>
 </head>
 <body>
@@ -281,6 +289,56 @@ const ADMIN_PASSWORD = "male123";
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
+// ---------- 가벼운 등장 애니메이션 헬퍼 ----------
+// 요소가 나타날 때 살짝 페이드+슬라이드 되도록. 매번 다시 트리거되게 리플로우로 리셋해요.
+function reveal(el){
+  if(!el) return;
+  el.classList.remove('reveal-anim');
+  void el.offsetWidth;
+  el.classList.add('reveal-anim');
+}
+// hidden 클래스를 토글하면서, 보여질 때만 reveal 애니메이션을 같이 트리거해요.
+function revealToggle(el, show){
+  if(!el) return;
+  el.classList.toggle('hidden', !show);
+  if(show) reveal(el);
+}
+// 두 컨테이너 중 하나만 보이게 전환하면서, 새로 보이는 쪽에 살짝 페이드인을 줘요.
+function fadeSwap(showEl, ...hideEls){
+  hideEls.forEach(el=> el && el.classList.add('hidden'));
+  if(showEl){
+    showEl.classList.remove('hidden');
+    showEl.classList.remove('fade-swap');
+    void showEl.offsetWidth;
+    showEl.classList.add('fade-swap');
+  }
+}
+
+// 접혔다 펼쳐지는 패널(무게 계산기 등)에 공통으로 쓰는 max-height 트랜지션 초기화/토글.
+function initCollapsible(panel){
+  panel.style.cssText += 'overflow:hidden; max-height:0; opacity:0; transition: max-height .28s ease, opacity .22s ease;';
+}
+function toggleCollapsible(panel, opening){
+  if(opening){
+    panel.classList.add('open');
+    panel.style.maxHeight = panel.scrollHeight + 'px';
+    panel.style.opacity = '1';
+    panel.addEventListener('transitionend', function onEnd(e){
+      if(e.propertyName !== 'max-height') return;
+      if(panel.classList.contains('open')) panel.style.maxHeight = 'none';
+      panel.removeEventListener('transitionend', onEnd);
+    });
+  } else {
+    panel.style.maxHeight = panel.scrollHeight + 'px';
+    panel.offsetHeight;
+    requestAnimationFrame(()=>{
+      panel.style.maxHeight = '0';
+      panel.style.opacity = '0';
+    });
+    panel.classList.remove('open');
+  }
+}
+
 const TRASH_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>';
 const PLUS_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
 const CHART_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg>';
@@ -302,6 +360,102 @@ const ITEM_TYPES = [
   { value: 'emom_by_round', short: '라운드 EMOM', label: '라운드별 언브로큰/브로큰' }
 ];
 function itemTypeShort(type){ const t = ITEM_TYPES.find(x=>x.value===type); return t ? t.short : type; }
+
+// ---------- 글래스 테마 라인 차트 ----------
+// 테마 CSS 변수를 읽어서 라이트/다크 둘 다 자연스럽게 어울리는 차트를 만들어요.
+function cssVarRaw(name){
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function buildGlassLineChart(canvas, { labels, data, label, suffix, highlights, tooltipLabel }){
+  const accent = cssVarRaw('--chart-accent') || '74, 122, 181';
+  const gridColor = cssVarRaw('--chart-grid') || 'rgba(0,0,0,0.07)';
+  const tooltipBg = cssVarRaw('--chart-tooltip-bg') || 'rgba(24,24,22,0.86)';
+  const tooltipBorder = cssVarRaw('--chart-tooltip-border') || 'rgba(255,255,255,0.14)';
+  const mutedColor = cssVarRaw('--text-muted') || '#8f8c85';
+  const surfaceColor = cssVarRaw('--surface-1') || '#ffffff';
+  const monoFont = cssVarRaw('--font-mono') || 'monospace';
+  const isHi = (i)=> Array.isArray(highlights) && highlights[i];
+
+  return new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: label || '',
+        data,
+        borderColor: `rgba(${accent},0.9)`,
+        borderWidth: 2,
+        // 차트 영역 기준 세로 그라데이션이라 리사이즈돼도 자연스럽게 유지돼요
+        backgroundColor: (ctx)=>{
+          const { ctx: c, chartArea } = ctx.chart;
+          if(!chartArea) return 'transparent';
+          const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          g.addColorStop(0, `rgba(${accent},0.30)`);
+          g.addColorStop(1, `rgba(${accent},0.01)`);
+          return g;
+        },
+        fill: true,
+        tension: 0.35,
+        pointRadius: (ctx)=> isHi(ctx.dataIndex) ? 5 : 3.5,
+        pointHoverRadius: (ctx)=> isHi(ctx.dataIndex) ? 7 : 5.5,
+        pointBackgroundColor: (ctx)=> isHi(ctx.dataIndex) ? `rgb(${accent})` : surfaceColor,
+        pointBorderColor: `rgba(${accent},0.9)`,
+        pointBorderWidth: 2,
+        pointHoverBorderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600, easing: 'easeOutQuart' },
+      interaction: { intersect: false, mode: 'index' },
+      layout: { padding: { top: 8, right: 4, left: 0, bottom: 0 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: tooltipBg,
+          borderColor: tooltipBorder,
+          borderWidth: 1,
+          cornerRadius: 10,
+          padding: 10,
+          displayColors: false,
+          titleColor: 'rgba(255,255,255,0.6)',
+          titleFont: { size: 11, family: monoFont, weight: '400' },
+          bodyColor: '#ffffff',
+          bodyFont: { size: 14, weight: '600' },
+          callbacks: {
+            label: tooltipLabel || ((ctx)=> `${round1(ctx.parsed.y)}${suffix || ''}`)
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: {
+            color: mutedColor,
+            font: { size: 11, family: monoFont },
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 5
+          }
+        },
+        y: {
+          grid: { color: gridColor, drawTicks: false },
+          border: { display: false },
+          ticks: {
+            color: mutedColor,
+            font: { size: 11, family: monoFont },
+            padding: 8,
+            maxTicksLimit: 5,
+            callback: (v)=> `${round1(v)}${suffix || ''}`
+          }
+        }
+      }
+    }
+  });
+}
 const ICON_BTN_STYLE = 'padding:0; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--text-primary); background:var(--surface-1); border:1px solid var(--border);';
 const ICON_BTN_DANGER_STYLE = 'padding:0; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--text-danger); background:var(--surface-1); border:1px solid var(--border);';
 
@@ -318,10 +472,11 @@ function getPreferredUnit(){ return localStorage.getItem('weightUnit') || 'lb'; 
 function setPreferredUnit(u){ localStorage.setItem('weightUnit', u); }
 
 function switchTab(tab){
-  document.getElementById('view-log').classList.toggle('hidden', tab !== 'log');
-  document.getElementById('view-board').classList.toggle('hidden', tab !== 'board');
-  document.getElementById('view-profile').classList.toggle('hidden', tab !== 'profile');
-  document.getElementById('view-admin').classList.toggle('hidden', tab !== 'admin');
+  const views = { log: 'view-log', board: 'view-board', profile: 'view-profile', admin: 'view-admin' };
+  Object.entries(views).forEach(([t, id])=>{
+    if(t === tab) fadeSwap(document.getElementById(id));
+    else document.getElementById(id).classList.add('hidden');
+  });
   ['log','board','profile','admin'].forEach(t=>{
     document.getElementById('tab-'+t).classList.toggle('active', t === tab);
   });
@@ -338,8 +493,7 @@ document.getElementById('tab-admin').onclick = ()=> switchTab('admin');
 document.getElementById('admin-unlock-btn').onclick = ()=>{
   const pw = document.getElementById('admin-pw').value;
   if(pw === ADMIN_PASSWORD){
-    document.getElementById('admin-gate').classList.add('hidden');
-    document.getElementById('admin-panel').classList.remove('hidden');
+    fadeSwap(document.getElementById('admin-panel'), document.getElementById('admin-gate'));
     document.getElementById('admin-date').value = todayStr();
     renderAdminProgramList();
   } else {
@@ -348,8 +502,9 @@ document.getElementById('admin-unlock-btn').onclick = ()=>{
 };
 
 function setInputMode(mode){
-  document.getElementById('mode-ai').classList.toggle('hidden', mode !== 'ai');
-  document.getElementById('mode-json').classList.toggle('hidden', mode !== 'json');
+  const aiEl = document.getElementById('mode-ai');
+  const jsonEl = document.getElementById('mode-json');
+  fadeSwap(mode === 'ai' ? aiEl : jsonEl, mode === 'ai' ? jsonEl : aiEl);
   document.getElementById('mode-ai-btn').className = mode === 'ai' ? 'primary' : '';
   document.getElementById('mode-json-btn').className = mode === 'json' ? 'primary' : '';
 }
@@ -460,6 +615,7 @@ function loadItemsIntoEditor(items){
   document.getElementById('editor-error').textContent = '';
   const wrap = document.getElementById('items-editor-wrap');
   wrap.classList.remove('hidden');
+  reveal(wrap);
   const date = document.getElementById('admin-date').value;
   document.getElementById('editor-date-label').textContent = `${date} · 항목을 눌러서 이름·기록 방식·라운드 수 등을 수정할 수 있어요.`;
   renderItemsEditor();
@@ -496,7 +652,7 @@ function buildItemEditorCard(item, idx){
   const body = document.createElement('div');
   body.style.cssText = 'padding:12px 14px 14px; border-top:1px solid var(--border);';
   if(!item._open) body.classList.add('hidden');
-  header.onclick = ()=>{ item._open = !item._open; body.classList.toggle('hidden', !item._open); };
+  header.onclick = ()=>{ item._open = !item._open; revealToggle(body, item._open); };
 
   const fieldStyle = 'width:100%; margin-bottom:8px;';
   const typeOptions = ITEM_TYPES.map(t=>`<option value="${t.value}" ${t.value===item.type?'selected':''}>${t.label}</option>`).join('');
@@ -678,6 +834,7 @@ async function renderAdminProgramList(){
 
 function showAdminProgramDetail(date, panel){
   panel.classList.remove('hidden');
+  reveal(panel);
   panel.innerHTML = `
     <p class="mono" style="font-weight:500; font-size:16px; margin:0 0 10px;">${date}</p>
     <div class="row" style="gap:8px; margin-bottom:0;">
@@ -844,14 +1001,14 @@ async function renderLogForm(date){
         `;
         const checkbox = card.querySelector('.scale-check');
         const detail = card.querySelector('.scale-detail');
-        checkbox.onchange = ()=> { detail.classList.toggle('hidden', !checkbox.checked); };
+        checkbox.onchange = ()=> revealToggle(detail, checkbox.checked);
 
         const skipCheck = card.querySelector('.skip-check');
         const skipReasonWrap = card.querySelector('.skip-reason-wrap');
         const recordInputWrap = card.querySelector('.record-input-wrap');
         skipCheck.onchange = ()=>{
-          skipReasonWrap.classList.toggle('hidden', !skipCheck.checked);
-          recordInputWrap.classList.toggle('hidden', skipCheck.checked);
+          revealToggle(skipReasonWrap, skipCheck.checked);
+          revealToggle(recordInputWrap, !skipCheck.checked);
         };
 
         sectionBox.appendChild(card);
@@ -926,14 +1083,14 @@ async function renderLogForm(date){
 
     const checkbox = card.querySelector('.scale-check');
     const detail = card.querySelector('.scale-detail');
-    checkbox.onchange = ()=> { detail.classList.toggle('hidden', !checkbox.checked); };
+    checkbox.onchange = ()=> revealToggle(detail, checkbox.checked);
 
     const skipCheck = card.querySelector('.skip-check');
     const skipReasonWrap = card.querySelector('.skip-reason-wrap');
     const recordInputWrap = card.querySelector('.record-input-wrap');
     skipCheck.onchange = ()=>{
-      skipReasonWrap.classList.toggle('hidden', !skipCheck.checked);
-      recordInputWrap.classList.toggle('hidden', skipCheck.checked);
+      revealToggle(skipReasonWrap, skipCheck.checked);
+      revealToggle(recordInputWrap, !skipCheck.checked);
     };
 
     return card;
@@ -1003,14 +1160,14 @@ async function renderLogForm(date){
 
     const checkbox = card.querySelector('.scale-check');
     const detail = card.querySelector('.scale-detail');
-    checkbox.onchange = ()=> { detail.classList.toggle('hidden', !checkbox.checked); };
+    checkbox.onchange = ()=> revealToggle(detail, checkbox.checked);
 
     const skipCheck = card.querySelector('.skip-check');
     const skipReasonWrap = card.querySelector('.skip-reason-wrap');
     const recordInputWrap = card.querySelector('.record-input-wrap');
     skipCheck.onchange = ()=>{
-      skipReasonWrap.classList.toggle('hidden', !skipCheck.checked);
-      recordInputWrap.classList.toggle('hidden', skipCheck.checked);
+      revealToggle(skipReasonWrap, skipCheck.checked);
+      revealToggle(recordInputWrap, !skipCheck.checked);
     };
 
     return card;
@@ -1300,9 +1457,7 @@ async function renderBoard(){
 }
 
 async function renderProfileList(){
-  document.getElementById('profile-detail').classList.add('hidden');
-  document.getElementById('profile-item-detail').classList.add('hidden');
-  document.getElementById('profile-list').classList.remove('hidden');
+  fadeSwap(document.getElementById('profile-list'), document.getElementById('profile-detail'), document.getElementById('profile-item-detail'));
   const el = document.getElementById('profile-list');
   el.innerHTML = '<p class="muted">불러오고 있어요...</p>';
   const { data, error } = await sb.from('records').select('name');
@@ -1327,10 +1482,8 @@ let profileCurrentName = null;
 let profileCurrentKeyLifts = [];
 
 async function showProfileDetail(name){
-  document.getElementById('profile-list').classList.add('hidden');
-  document.getElementById('profile-item-detail').classList.add('hidden');
   const el = document.getElementById('profile-detail');
-  el.classList.remove('hidden');
+  fadeSwap(el, document.getElementById('profile-list'), document.getElementById('profile-item-detail'));
   el.innerHTML = '<p class="muted">불러오고 있어요...</p>';
 
   const { data, error } = await sb.from('records').select('*').eq('name', name).order('date', { ascending: true });
@@ -1407,6 +1560,7 @@ function renderProfileBody(unit){
     const found = profileCurrentKeyLifts.find(k=>k.lift_name === liftName);
     if(keyLiftChartInstances['panel']){ keyLiftChartInstances['panel'].destroy(); delete keyLiftChartInstances['panel']; }
     liftDetailPanel.classList.remove('hidden');
+    reveal(liftDetailPanel);
     liftDetailPanel.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px;">
         <span style="font-weight:500; font-size:17px;">${liftName}</span>
@@ -1475,7 +1629,7 @@ function renderProfileBody(unit){
 
   addLiftToggleBtn.onclick = ()=>{
     const willShow = addLiftForm.classList.contains('hidden');
-    addLiftForm.classList.toggle('hidden');
+    revealToggle(addLiftForm, willShow);
     if(willShow){
       addLiftForm.querySelector('#new-lift-date').value = todayStr();
       addLiftForm.querySelector('#new-lift-name').focus();
@@ -1564,10 +1718,8 @@ function renderProfileBody(unit){
 }
 
 function showProfileItemDetail(name, itemName, records, isWeightType, isNumeric){
-  document.getElementById('profile-list').classList.add('hidden');
-  document.getElementById('profile-detail').classList.add('hidden');
   const el = document.getElementById('profile-item-detail');
-  el.classList.remove('hidden');
+  fadeSwap(el, document.getElementById('profile-list'), document.getElementById('profile-detail'));
   el.innerHTML = '';
 
   const unit = getPreferredUnit();
@@ -1605,6 +1757,7 @@ function showProfileItemDetail(name, itemName, records, isWeightType, isNumeric)
         return;
       }
       canvasWrap.classList.remove('hidden');
+      reveal(canvasWrap);
       graphToggleBtn.textContent = '그래프 숨기기';
 
       const numericRecords = records.filter(r => !r.skipped && (r.type === 'weight' || r.type === 'reps'));
@@ -1614,26 +1767,11 @@ function showProfileItemDetail(name, itemName, records, isWeightType, isNumeric)
         return Math.round(v * 10) / 10;
       });
 
-      chartInstance = new Chart(canvas, {
-        type: 'line',
-        data: {
-          labels: numericRecords.map(r=>r.date),
-          datasets: [{
-            label: itemName,
-            data: chartData,
-            borderColor: '#2a78d6',
-            backgroundColor: 'rgba(42,120,214,0.1)',
-            fill: true, tension: 0.2, pointRadius: 4
-          }]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: (ctx)=> `${Math.round(ctx.parsed.y*10)/10}${isWeightType?unit:''}` } }
-          },
-          scales: { y: { ticks: { callback: (v)=> `${Math.round(v*10)/10}${isWeightType?unit:''}` } } }
-        }
+      chartInstance = buildGlassLineChart(canvas, {
+        labels: numericRecords.map(r=>r.date),
+        data: chartData,
+        label: itemName,
+        suffix: isWeightType ? unit : ''
       });
     };
     el.appendChild(graphToggleBtn);
@@ -1712,19 +1850,20 @@ function calcPlatesForWeight(targetKg, barKg){
     return { used: [], achievedTotalKg: barKg, perSideTarget: perSideKg, diffPerSideKg: -perSideKg };
   }
 
-  const BUFFER_GRAMS = 300; // 목표를 살짝 넘어서라도 더 깔끔하고 정확한 조합을 찾기 위한 여유분
-  const searchMax = targetGrams + BUFFER_GRAMS;
-
-  const denoms = PLATE_INVENTORY.map(p=>({ label: p.label, grams: Math.round(p.kg * 1000) }));
+  // 1단계: lb 원판만으로 최선의 조합을 찾아요 (실제로 주로 쓰는 원판).
+  const lbPlates = PLATE_INVENTORY.filter(p=> p.unit === 'lb');
+  const lbDenoms = lbPlates.map(p=>({ label: p.label, grams: Math.round(p.kg * 1000) }));
+  const lbBuffer = Math.max(...lbDenoms.map(d=>d.grams));
+  const lbSearchMax = targetGrams + lbBuffer;
 
   const INF = Infinity;
-  const minCount = new Array(searchMax + 1).fill(INF);
-  const chosen = new Array(searchMax + 1).fill(-1);
+  const minCount = new Array(lbSearchMax + 1).fill(INF);
+  const chosen = new Array(lbSearchMax + 1).fill(-1);
   minCount[0] = 0;
 
-  for(let s = 1; s <= searchMax; s++){
-    for(let i = 0; i < denoms.length; i++){
-      const g = denoms[i].grams;
+  for(let s = 1; s <= lbSearchMax; s++){
+    for(let i = 0; i < lbDenoms.length; i++){
+      const g = lbDenoms[i].grams;
       if(g <= s && minCount[s - g] + 1 < minCount[s]){
         minCount[s] = minCount[s - g] + 1;
         chosen[s] = i;
@@ -1732,11 +1871,10 @@ function calcPlatesForWeight(targetKg, barKg){
     }
   }
 
-  // 목표에 가장 가까운 조합을 찾는다 (동점이면 목표를 넘지 않는 쪽, 그다음 원판 개수가 적은 쪽 우선)
   let bestS = -1;
   let bestDiff = Infinity;
-  const searchMin = Math.max(0, targetGrams - BUFFER_GRAMS);
-  for(let s = searchMin; s <= searchMax; s++){
+  const lbSearchMin = Math.max(0, targetGrams - lbBuffer);
+  for(let s = lbSearchMin; s <= lbSearchMax; s++){
     if(minCount[s] === INF) continue;
     const diff = Math.abs(s - targetGrams);
     if(diff < bestDiff - 1e-9){
@@ -1755,21 +1893,91 @@ function calcPlatesForWeight(targetKg, barKg){
   while(s > 0){
     const idx = chosen[s];
     if(idx === -1) break;
-    countMap[denoms[idx].label] = (countMap[denoms[idx].label] || 0) + 1;
-    s -= denoms[idx].grams;
+    countMap[lbDenoms[idx].label] = (countMap[lbDenoms[idx].label] || 0) + 1;
+    s -= lbDenoms[idx].grams;
   }
 
-  const used = PLATE_INVENTORY
+  // 2단계: 남는 오차를 작은 kg 원판(5kg 이하) 최대 2장으로만 정밀 보정해요.
+  // (많이 섞으면 실제로 꽂기 번거로우니 미세 조정 용도로만 최소한으로 사용)
+  const smallKgPlates = PLATE_INVENTORY.filter(p=> p.unit === 'kg' && p.kg <= 5);
+  let bestTotal = bestS;
+  let bestExtra = [];
+  let bestExtraDiff = Math.abs(bestS - targetGrams);
+
+  const tryCombo = (combo)=>{
+    const extraGrams = combo.reduce((sum, p)=> sum + Math.round(p.kg * 1000), 0);
+    const total = bestS + extraGrams;
+    const diff = Math.abs(total - targetGrams);
+    const better = diff < bestExtraDiff - 1e-9 ||
+      (Math.abs(diff - bestExtraDiff) <= 1e-9 && combo.length < bestExtra.length);
+    if(better){
+      bestExtraDiff = diff;
+      bestTotal = total;
+      bestExtra = combo;
+    }
+  };
+
+  smallKgPlates.forEach(p=> tryCombo([p]));
+  smallKgPlates.forEach((p, i)=>{
+    smallKgPlates.slice(i).forEach(q=> tryCombo([p, q]));
+  });
+
+  bestExtra.forEach(p=>{ countMap[p.label] = (countMap[p.label] || 0) + 1; });
+
+  const allPlates = [...lbPlates, ...smallKgPlates];
+  const used = allPlates
     .filter(p=> countMap[p.label])
     .map(p=> ({ label: p.label, count: countMap[p.label] }));
 
-  const achievedPerSideKg = bestS / 1000;
+  const achievedPerSideKg = bestTotal / 1000;
   const achievedTotalKg = barKg + achievedPerSideKg * 2;
   const diffPerSideKg = perSideKg - achievedPerSideKg; // 양수: 목표에 못 미침, 음수: 목표를 초과
 
   return { used, achievedTotalKg, perSideTarget: perSideKg, diffPerSideKg };
 }
 
+// 한쪽에 꽂는 원판 구성을 실제 바벨처럼 그림으로 보여줘요. 바에서 가까운 쪽이 큰 원판.
+function buildBarbellVisual(used){
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex; align-items:center; justify-content:center; gap:2px; margin:10px 0; padding:10px 4px; overflow-x:auto;';
+
+  const plates = [];
+  used.forEach(p=>{
+    const m = p.label.match(/^([\d.]+)(lb|kg)$/);
+    const num = m ? parseFloat(m[1]) : parseFloat(p.label);
+    const unit = m ? m[2] : 'lb';
+    for(let i = 0; i < p.count; i++) plates.push({ num, unit });
+  });
+
+  if(plates.length === 0){
+    const empty = document.createElement('p');
+    empty.className = 'muted';
+    empty.style.cssText = 'font-size:13px; text-align:center; width:100%;';
+    empty.textContent = '추가 원판 없이 바벨만 사용해요';
+    wrap.appendChild(empty);
+    return wrap;
+  }
+
+  function plateEl(plate){
+    // kg 원판은 lb 환산 무게 기준으로 높이를 잡아서 실제 크기 느낌이 나게 해요.
+    const equivLb = plate.unit === 'kg' ? plate.num / KG_PER_LB : plate.num;
+    const h = Math.round(26 + Math.min(equivLb, 45) / 45 * 42);
+    const el = document.createElement('div');
+    el.style.cssText = `position:relative; display:flex; align-items:center; justify-content:center;
+      min-width:24px; height:${h}px; flex-shrink:0; margin:0 1px; padding:0 3px;
+      border-radius:3px; background:var(--surface-1); border:1px solid var(--border-strong);
+      box-shadow: var(--card-shadow);`;
+    const label = document.createElement('span');
+    label.textContent = plate.unit === 'kg' ? `${plate.num}kg` : plate.num;
+    label.style.cssText = `font-family:var(--font-mono); font-size:10px; color:var(--text-secondary); white-space:nowrap;`;
+    el.appendChild(label);
+    return el;
+  }
+
+  plates.forEach(p=> wrap.appendChild(plateEl(p)));
+
+  return wrap;
+}
 
 function buildWeightCalcBox(keyLifts, liftNames, unit){
   const box = document.createElement('div');
@@ -1787,8 +1995,8 @@ function buildWeightCalcBox(keyLifts, liftNames, unit){
   box.appendChild(headerRow);
 
   const panel = document.createElement('div');
-  panel.className = 'hidden';
   panel.style.marginTop = '14px';
+  initCollapsible(panel);
 
   const liftOptions = ['직접입력', ...liftNames].map(n=>`<option value="${n}">${n}</option>`).join('');
 
@@ -1839,9 +2047,9 @@ function buildWeightCalcBox(keyLifts, liftNames, unit){
   box.appendChild(panel);
 
   toggleBtn.onclick = ()=>{
-    const isHidden = panel.classList.contains('hidden');
-    panel.classList.toggle('hidden');
-    if(isHidden){
+    const isOpen = panel.classList.contains('open');
+    toggleCollapsible(panel, !isOpen);
+    if(!isOpen){
       toggleBtn.innerHTML = CLOSE_ICON_SVG;
       toggleBtn.title = '무게 계산기 닫기'; toggleBtn.setAttribute('aria-label', '무게 계산기 닫기');
       toggleBtn.style.color = 'var(--text-danger)';
@@ -1961,25 +2169,10 @@ function buildWeightCalcBox(keyLifts, liftNames, unit){
     const { used, achievedTotalKg, diffPerSideKg } = calcPlatesForWeight(baseKg, bar.kg);
 
     plateResultEl.innerHTML = '';
-    const barLine = document.createElement('p');
-    barLine.style.cssText = 'font-size:15px; margin:0 0 8px;';
-    barLine.innerHTML = `바벨: <strong style="font-weight:500;">${bar.label}</strong>`;
-    plateResultEl.appendChild(barLine);
-
-    if(used.length === 0){
-      const noPlateLine = document.createElement('p');
-      noPlateLine.style.cssText = 'font-size:15px; margin:0 0 8px;';
-      noPlateLine.textContent = '추가 원판 없이 바벨만 사용하면 돼요.';
-      plateResultEl.appendChild(noPlateLine);
-    } else {
-      const plateLine = document.createElement('p');
-      plateLine.style.cssText = 'font-size:15px; margin:0 0 8px;';
-      plateLine.innerHTML = `한쪽당: <strong style="font-weight:500;">${used.map(p=>`${p.label} × ${p.count}개`).join(' + ')}</strong>`;
-      plateResultEl.appendChild(plateLine);
-    }
+    plateResultEl.appendChild(buildBarbellVisual(used));
 
     const totalLine = document.createElement('p');
-    totalLine.style.cssText = 'font-size:17px; font-weight:500; margin:0;';
+    totalLine.style.cssText = 'font-size:17px; font-weight:500; margin:8px 0 0;';
     totalLine.textContent = `총 무게: ${formatBothUnits(achievedTotalKg, baseUnitSelect.value)}`;
     plateResultEl.appendChild(totalLine);
 
@@ -2294,6 +2487,7 @@ async function toggleKeyLiftGraph(name, liftName, kIdx, unit, cardEl){
     return;
   }
   wrap.classList.remove('hidden');
+  reveal(wrap);
 
   const { data, error } = await sb.from('key_lift_history')
     .select('*').eq('name', name).eq('lift_name', liftName)
@@ -2310,28 +2504,13 @@ async function toggleKeyLiftGraph(name, liftName, kIdx, unit, cardEl){
   const chartData = data.map(r=> Math.round(fromKg(r.value_kg, unit) * 10) / 10);
   const isPR = data.map((r,i)=> i === 0 || r.value_kg >= Math.max(...data.slice(0,i).map(d=>d.value_kg)));
 
-  keyLiftChartInstances[kIdx] = new Chart(canvas, {
-    type: 'line',
-    data: {
-      labels: data.map(r=>r.recorded_date),
-      datasets: [{
-        label: liftName,
-        data: chartData,
-        borderColor: '#2a78d6',
-        backgroundColor: 'rgba(42,120,214,0.1)',
-        fill: true, tension: 0.2,
-        pointRadius: 5,
-        pointBackgroundColor: isPR.map(pr => pr ? '#008300' : '#2a78d6')
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: (ctx)=> `${Math.round(ctx.parsed.y*10)/10}${unit}${isPR[ctx.dataIndex] ? ' (PR)' : ''}` } }
-      },
-      scales: { y: { ticks: { callback: (v)=> `${Math.round(v*10)/10}${unit}` } } }
-    }
+  keyLiftChartInstances[kIdx] = buildGlassLineChart(canvas, {
+    labels: data.map(r=>r.recorded_date),
+    data: chartData,
+    label: liftName,
+    suffix: unit,
+    highlights: isPR,
+    tooltipLabel: (ctx)=> `${round1(ctx.parsed.y)}${unit}${isPR[ctx.dataIndex] ? '  · PR' : ''}`
   });
 }
 
