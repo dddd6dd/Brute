@@ -1650,9 +1650,6 @@ function renderProfileBody(unit){
     if(ok) showProfileDetail(name);
   };
 
-  // ---------- 무게 계산기 ----------
-  el.appendChild(buildWeightCalcBox(profileCurrentKeyLifts, allLiftNames, unit));
-
   // ---------- 날짜별 기록 보기 ----------
   el.appendChild(buildDateLookupBox(data, unit));
 
@@ -1819,8 +1816,10 @@ function formatBothUnits(kgValue, primaryUnit){
 
 // 박스에 있는 바벨/원판 목록 (바벨은 미국식 45lb/35lb가 실제 정확한 무게 기준)
 const BAR_INVENTORY = [
-  { key: 'male', label: '남자바 45lb (20.4kg)', kg: 45 * KG_PER_LB },
-  { key: 'female', label: '여자바 35lb (15.9kg)', kg: 35 * KG_PER_LB }
+  { key: '45lb', label: '45lb', kg: 45 * KG_PER_LB },
+  { key: '20kg', label: '20kg', kg: 20 },
+  { key: '35lb', label: '35lb', kg: 35 * KG_PER_LB },
+  { key: '15kg', label: '15kg', kg: 15 }
 ];
 const PLATE_INVENTORY = [
   { label: '45lb', kg: 45 * KG_PER_LB, unit: 'lb' },
@@ -1979,32 +1978,26 @@ function buildBarbellVisual(used){
   return wrap;
 }
 
-function buildWeightCalcBox(keyLifts, liftNames, unit){
-  const box = document.createElement('div');
-  box.style.cssText = 'background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px; margin-bottom:20px; box-shadow:var(--card-shadow);';
+// 오른쪽 아래에 항상 떠있는 계산기 아이콘. 눌러서 열고 닫으며 무게 계산기 패널을 확장/축소해요.
+function initFloatingWeightCalc(){
+  const unit = getPreferredUnit();
 
-  const headerRow = document.createElement('div');
-  headerRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center;';
-  headerRow.innerHTML = `<div><p class="eyebrow" style="margin:0 0 6px;">CALCULATOR</p><h3 style="font-size:18px; font-weight:500; margin:0;">무게 계산기</h3></div>`;
-  const toggleBtn = document.createElement('button');
-  toggleBtn.title = '무게 계산기 열기';
-  toggleBtn.setAttribute('aria-label', '무게 계산기 열기');
-  toggleBtn.style.cssText = `width:36px; height:36px; ${ICON_BTN_STYLE} border-radius:var(--radius);`;
-  toggleBtn.innerHTML = CALCULATOR_ICON_SVG;
-  headerRow.appendChild(toggleBtn);
-  box.appendChild(headerRow);
+  const container = document.createElement('div');
+  container.id = 'floating-calc';
+  container.style.cssText = 'position:fixed; right:20px; bottom:20px; z-index:1000; display:flex; flex-direction:column; align-items:flex-end; gap:10px;';
 
   const panel = document.createElement('div');
-  panel.style.marginTop = '14px';
+  panel.style.cssText = 'width:min(360px, calc(100vw - 40px)); background:var(--surface-1); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--card-shadow);';
   initCollapsible(panel);
 
-  const liftOptions = ['직접입력', ...liftNames].map(n=>`<option value="${n}">${n}</option>`).join('');
+  const panelInner = document.createElement('div');
+  panelInner.style.cssText = 'padding:16px; max-height:min(60vh, 480px); overflow-y:auto;';
+  panel.appendChild(panelInner);
 
-  panel.innerHTML = `
-    <div class="row" style="margin-bottom:10px;">
-      <label style="margin:0; font-size:15px;">기준 종목</label>
-      <select id="calc-lift-select" style="width:160px;">${liftOptions}</select>
-    </div>
+  panelInner.innerHTML = `
+    <p class="eyebrow" style="margin:0 0 6px;">CALCULATOR</p>
+    <h3 style="font-size:18px; font-weight:500; margin:0 0 14px;">무게 계산기</h3>
+
     <div class="row" style="margin-bottom:16px;">
       <label style="margin:0; font-size:15px;">기준 무게</label>
       <input type="number" step="0.1" id="calc-base-value" placeholder="무게" style="width:110px;" />
@@ -2044,7 +2037,18 @@ function buildWeightCalcBox(keyLifts, liftNames, unit){
     </div>
     <div id="calc-plate-result"></div>
   `;
-  box.appendChild(panel);
+  container.appendChild(panel);
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.title = '무게 계산기 열기';
+  toggleBtn.setAttribute('aria-label', '무게 계산기 열기');
+  toggleBtn.style.cssText = `width:52px; height:52px; ${ICON_BTN_STYLE}`;
+  toggleBtn.innerHTML = CALCULATOR_ICON_SVG;
+  toggleBtn.querySelector('svg').setAttribute('width', '22');
+  toggleBtn.querySelector('svg').setAttribute('height', '22');
+  container.appendChild(toggleBtn);
+
+  document.body.appendChild(container);
 
   toggleBtn.onclick = ()=>{
     const isOpen = panel.classList.contains('open');
@@ -2058,11 +2062,12 @@ function buildWeightCalcBox(keyLifts, liftNames, unit){
       toggleBtn.title = '무게 계산기 열기'; toggleBtn.setAttribute('aria-label', '무게 계산기 열기');
       toggleBtn.style.color = 'var(--text-primary)';
     }
+    toggleBtn.querySelector('svg').setAttribute('width', '22');
+    toggleBtn.querySelector('svg').setAttribute('height', '22');
   };
 
-  const liftSelect = panel.querySelector('#calc-lift-select');
-  const baseValueInput = panel.querySelector('#calc-base-value');
-  const baseUnitSelect = panel.querySelector('#calc-base-unit');
+  const baseValueInput = panelInner.querySelector('#calc-base-value');
+  const baseUnitSelect = panelInner.querySelector('#calc-base-unit');
 
   function getBaseKg(){
     const v = parseFloat(baseValueInput.value);
@@ -2070,21 +2075,8 @@ function buildWeightCalcBox(keyLifts, liftNames, unit){
     return toKg(v, baseUnitSelect.value);
   }
 
-  liftSelect.onchange = ()=>{
-    const liftName = liftSelect.value;
-    if(liftName === '직접입력'){ return; }
-    const found = keyLifts.find(k=>k.lift_name === liftName);
-    if(found){
-      baseValueInput.value = round1(fromKg(found.value_kg, baseUnitSelect.value));
-    } else {
-      baseValueInput.value = '';
-    }
-    renderSteps();
-    renderPlateCalc();
-  };
-
   // 퍼센트 프리셋 버튼
-  const presetWrap = panel.querySelector('#calc-percent-presets');
+  const presetWrap = panelInner.querySelector('#calc-percent-presets');
   [50,60,65,70,75,80,85,90,95].forEach(pct=>{
     const btn = document.createElement('button');
     btn.textContent = `${pct}%`;
@@ -2093,7 +2085,7 @@ function buildWeightCalcBox(keyLifts, liftNames, unit){
     presetWrap.appendChild(btn);
   });
 
-  const percentResultEl = panel.querySelector('#calc-percent-result');
+  const percentResultEl = panelInner.querySelector('#calc-percent-result');
   function showPercentResult(pct){
     const baseKg = getBaseKg();
     if(baseKg === null){ percentResultEl.textContent = '기준 무게를 먼저 입력해주세요'; return; }
@@ -2101,15 +2093,15 @@ function buildWeightCalcBox(keyLifts, liftNames, unit){
     percentResultEl.textContent = `${pct}% = ${formatBothUnits(resultKg, baseUnitSelect.value)}`;
   }
 
-  panel.querySelector('#calc-custom-percent-btn').onclick = ()=>{
-    const pct = parseFloat(panel.querySelector('#calc-custom-percent').value);
+  panelInner.querySelector('#calc-custom-percent-btn').onclick = ()=>{
+    const pct = parseFloat(panelInner.querySelector('#calc-custom-percent').value);
     if(isNaN(pct)){ percentResultEl.textContent = '퍼센트를 입력해주세요'; return; }
     showPercentResult(pct);
   };
 
   // 단계별 증량 계산
   let calcSteps = [];
-  const stepsListEl = panel.querySelector('#calc-steps-list');
+  const stepsListEl = panelInner.querySelector('#calc-steps-list');
 
   function renderSteps(){
     stepsListEl.innerHTML = '';
@@ -2140,19 +2132,19 @@ function buildWeightCalcBox(keyLifts, liftNames, unit){
     });
   }
 
-  panel.querySelector('#calc-step-add-btn').onclick = ()=>{
-    const amount = parseFloat(panel.querySelector('#calc-step-amount').value);
+  panelInner.querySelector('#calc-step-add-btn').onclick = ()=>{
+    const amount = parseFloat(panelInner.querySelector('#calc-step-amount').value);
     if(isNaN(amount)){ alert('증량 값을 입력해주세요'); return; }
-    const stepUnit = panel.querySelector('#calc-step-unit').value;
+    const stepUnit = panelInner.querySelector('#calc-step-unit').value;
     calcSteps.push({ amount, unit: stepUnit });
-    panel.querySelector('#calc-step-amount').value = '';
+    panelInner.querySelector('#calc-step-amount').value = '';
     renderSteps();
   };
-  panel.querySelector('#calc-step-reset-btn').onclick = ()=>{ calcSteps = []; renderSteps(); };
+  panelInner.querySelector('#calc-step-reset-btn').onclick = ()=>{ calcSteps = []; renderSteps(); };
 
   // 바벨 플레이트 계산
-  const barSelect = panel.querySelector('#calc-bar-select');
-  const plateResultEl = panel.querySelector('#calc-plate-result');
+  const barSelect = panelInner.querySelector('#calc-bar-select');
+  const plateResultEl = panelInner.querySelector('#calc-plate-result');
 
   function renderPlateCalc(){
     const baseKg = getBaseKg();
@@ -2193,8 +2185,6 @@ function buildWeightCalcBox(keyLifts, liftNames, unit){
 
   renderSteps();
   renderPlateCalc();
-
-  return box;
 }
 
 // 재사용 가능한 월별 캘린더 선택기. highlightedDates에 있는 날짜는 초록색으로 강조되고,
@@ -2636,6 +2626,7 @@ async function startEditRecord(record, lineEl, textSpan, unit, onSaved, onDelete
 }
 
 switchTab('log');
+initFloatingWeightCalc();
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
