@@ -182,8 +182,7 @@
 
 <div class="hero-card card">
   <div class="top-pill"><span class="dot"></span>FOR · JOGYM</div>
-  <h1>I AM BRUTE</h1>
-  <p class="sub">오늘 운동을 확인하고 기록을 남겨보세요.</p>
+  <h1 style="margin-bottom:24px;">I AM BRUTE</h1>
 </div>
 
 <div class="tabs">
@@ -273,6 +272,18 @@
     <hr style="border:none; border-top:0.5px solid var(--border); margin:24px 0;" />
     <p class="muted" style="margin-bottom:8px;">등록된 프로그램 관리</p>
     <div id="admin-program-list"></div>
+    <hr style="border:none; border-top:0.5px solid var(--border); margin:24px 0;" />
+    <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:4px;"><p class="muted" style="margin:0;">동작 영상</p><span class="muted" id="mv-count" style="font-size:13px;"></span></div>
+    <p class="muted" style="font-size:13px; margin:0 0 10px;">등록한 동작은 운동 화면에서 이름 옆에 유튜브 아이콘이 붙어요.</p>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;"><input type="date" id="mv-date" style="width:160px;" /><span class="muted" style="font-size:13px;">이 날 운동에서 동작을 골라요</span></div>
+    <div id="mv-picker" style="display:flex; flex-direction:column; gap:10px; margin-bottom:12px;"></div>
+    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+      <input type="text" id="mv-name" list="personal-movements" placeholder="동작 이름 (예: Thread the Needle)" />
+      <div style="display:flex; gap:8px;"><input type="url" id="mv-url" placeholder="유튜브 링크" style="flex:1; min-width:0;" /><button class="primary" id="mv-add-btn" style="flex-shrink:0;">저장</button></div>
+      <span class="status" id="mv-status"></span>
+    </div>
+    <input type="text" id="mv-search" placeholder="등록된 영상 검색" style="width:100%; margin-bottom:4px;" />
+    <div id="mv-list"></div>
   </div>
 </div>
 
@@ -398,11 +409,164 @@ function splitPrescribedLines(text){
   lines.push(buf);
   return lines.map(s=>s.trim().replace(/\.$/, '')).filter(Boolean);
 }
+// 줄 종류별 색: 구조(세트·라운드·렙 스킴)=진하게, 동작=보통, 휴식/메모=흐리게, 기록 안내=포인트색
+function prescribedLineStyle(l){
+  if(/^기록/.test(l)) return 'color:var(--border-accent); font-size:13px; margin-top:4px;';
+  if(/^-?\s*rest\b/i.test(l)) return 'color:var(--text-muted); font-size:14px;';
+  if(/^\*/.test(l)) return 'color:var(--text-muted); font-size:14px;';
+  if(/^(\d+\s*(sets?|rounds?)\b|\d+x\d+|\d+(-\d+)+$|emom|e\d+mom|amrap|for time|each for time|build to|every|then$|rpe\b)/i.test(l))
+    return 'color:var(--text-primary); font-weight:500;';
+  return 'color:var(--text-secondary);';
+}
 function formatPrescribed(text){
   return splitPrescribedLines(text)
-    .map(l => l ? `<div>${escapeHtml(l)}</div>` : '<div style="height:0.6em;"></div>')
+    .map(l => { if(!l) return '<div style="height:0.6em;"></div>'; const mv = extractMovementName(l); return `<div style="${prescribedLineStyle(l)}"${mv ? ` data-mv="${escapeAttr(mv)}"` : ''}>${escapeHtml(l)}</div>`; })
     .join('');
 }
+
+// ---------- 동작 영상: 동작 이름 → 유튜브 링크 (movement_videos 테이블) ----------
+const MV_HEADER_RE = /^(\d+\s*(sets?|rounds?)\b|\d+x\d+|\d+(-\d+)+|emom|e\d+mom|amrap|for time|each for time|build to|every|then$|rpe\b|rest\b|min \d|scale|goal|target|time cap|x\d)/i;
+function extractMovementName(line){
+  let s = String(line || '').trim();
+  if(!/[a-z]/i.test(s) || /[가-힣]/.test(s) || /:$/.test(s) || /^[(+\-*]/.test(s) || MV_HEADER_RE.test(s)) return '';
+  s = s.replace(/^(:?\d+(:\d+)?(\.\d+)*(\/\d+)?(x|ft|m|cal)?(\/side)?)(\s+(seconds?|secs?)(\/side)?)?\s+/i, '');
+  s = s.replace(/\s*@.*$/, '').replace(/\s*\(.*?\)/g, '').replace(/\s*-into-.*$/i, '').trim();
+  return (s.length >= 3 && /[a-z]{3}/i.test(s)) ? s : '';
+}
+const normMv = s => String(s || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(w => w.length > 3 ? w.replace(/s$/, '') : w).join('');
+let MV_MAP = null;
+async function loadMovementVideos(){
+  const { data, error } = await sb.from('movement_videos').select('name, url').order('name');
+  MV_MAP = new Map();
+  if(!error) (data || []).forEach(r => MV_MAP.set(normMv(r.name), r));
+  decorateMovementVideos(document);
+  return MV_MAP;
+}
+function findMovementVideo(name, line){
+  if(!MV_MAP) return null;
+  const k = normMv(name);
+  return MV_MAP.get(k) || null;
+}
+const MV_BTN = 'display:inline-flex; align-items:center; gap:3px; margin-left:6px; padding:0 8px; height:22px; border-radius:999px; font-size:12px; font-weight:500; line-height:1; vertical-align:middle; text-decoration:none; cursor:pointer; white-space:nowrap;';
+function decorateMovementVideos(root){
+  if(!MV_MAP) return;
+  (root || document).querySelectorAll('[data-mv]').forEach(div=>{
+    div.querySelectorAll('.mv-btn').forEach(b => b.remove());
+    const name = div.dataset.mv;
+    const hit = findMovementVideo(name, div.textContent);
+    if(hit){
+      const a = document.createElement('a');
+      a.className = 'mv-btn';
+      a.href = hit.url; a.target = '_blank'; a.rel = 'noopener';
+      a.style.cssText = 'display:inline-flex; align-items:center; margin-left:6px; vertical-align:middle; line-height:0;';
+      a.title = 'YouTube';
+      a.innerHTML = '<svg width="20" height="14" viewBox="0 0 20 14" aria-hidden="true"><rect width="20" height="14" rx="3.5" fill="#FF0000"/><path d="M8 4v6l5.2-3z" fill="#fff"/></svg>';
+      a.onclick = e => e.stopPropagation();
+      div.appendChild(a);
+    }
+  });
+}
+function normalizeVideoUrl(u){
+  u = String(u || '').trim();
+  if(!u) return '';
+  if(!/^https?:\/\//i.test(u)) u = 'https://' + u;
+  return u;
+}
+async function saveMovementVideo(name, url){
+  name = String(name || '').trim();
+  url = normalizeVideoUrl(url);
+  if(!name || !url) return '동작 이름과 링크를 모두 넣어주세요.';
+  const { error } = await sb.from('movement_videos').upsert({ name, url, updated_at: new Date().toISOString() }, { onConflict: 'name' });
+  if(error) return '저장에 실패했어요: ' + error.message;
+  await loadMovementVideos();
+  if(document.getElementById('mv-list')){ renderMovementVideoList(); renderMovementPicker(); }
+  return '';
+}
+async function promptMovementVideo(name, current){
+  const url = window.prompt('"' + name + '" 유튜브 링크를 붙여넣어 주세요', current || '');
+  if(url === null) return;
+  if(!url.trim()){ return; }
+  const err = await saveMovementVideo(name, url);
+  if(err) alert(err);
+}
+async function renderMovementPicker(){
+  const el = document.getElementById('mv-picker');
+  const dateEl = document.getElementById('mv-date');
+  if(!el || !dateEl) return;
+  if(!dateEl.value) dateEl.value = todayStr();
+  if(!MV_MAP) await loadMovementVideos();
+  const { data } = await sb.from('programs').select('items').eq('date', dateEl.value).maybeSingle();
+  const items = (data && data.items) || [];
+  if(!items.length){ el.innerHTML = '<p class="muted" style="font-size:14px; margin:0;">이 날은 프로그램이 없어요.</p>'; return; }
+  const bySec = new Map();
+  items.forEach(it=>{
+    const sec = stripLabelPrefix(it.section || '기타');
+    if(!bySec.has(sec)) bySec.set(sec, []);
+    const list = bySec.get(sec);
+    splitPrescribedLines(it.prescribed).forEach(l=>{
+      const n = extractMovementName(l);
+      if(n && !list.some(x => normMv(x) === normMv(n))) list.push(n);
+    });
+  });
+  el.innerHTML = '';
+  bySec.forEach((names, sec)=>{
+    if(!names.length) return;
+    const g = document.createElement('div');
+    g.innerHTML = '<p class="muted" style="font-size:12px; font-weight:500; letter-spacing:0.04em; margin:0 0 6px;">' + escapeHtml(sec) + '</p><div class="mv-chips" style="display:flex; flex-wrap:wrap; gap:6px;"></div>';
+    const wrap = g.querySelector('.mv-chips');
+    names.forEach(n=>{
+      const has = !!MV_MAP.get(normMv(n));
+      const c = document.createElement('button');
+      c.type = 'button';
+      c.style.cssText = 'height:30px; padding:0 10px; border-radius:999px; font-size:13px; font-weight:400; display:inline-flex; align-items:center; gap:5px;' + (has ? 'color:var(--text-muted);' : '');
+      c.innerHTML = (has ? '<svg width="14" height="10" viewBox="0 0 20 14" aria-hidden="true"><rect width="20" height="14" rx="3.5" fill="#FF0000"/><path d="M8 4v6l5.2-3z" fill="#fff"/></svg>' : '') + escapeHtml(n);
+      c.onclick = ()=>{
+        const hit = MV_MAP.get(normMv(n));
+        document.getElementById('mv-name').value = hit ? hit.name : n;
+        document.getElementById('mv-url').value = hit ? hit.url : '';
+        document.getElementById('mv-status').textContent = hit ? '이미 등록된 영상이에요. 링크를 바꾸고 저장하면 수정돼요.' : '';
+        document.getElementById('mv-status').className = 'status';
+        document.getElementById('mv-url').focus();
+      };
+      wrap.appendChild(c);
+    });
+    el.appendChild(g);
+  });
+}
+async function renderMovementVideoList(){
+  const el = document.getElementById('mv-list');
+  if(!el) return;
+  if(!MV_MAP) await loadMovementVideos();
+  const q = normMv(document.getElementById('mv-search').value);
+  const rows = [...MV_MAP.values()].filter(v => !q || normMv(v.name).includes(q)).sort((a, b)=> a.name.localeCompare(b.name));
+  document.getElementById('mv-count').textContent = MV_MAP.size ? MV_MAP.size + '개' : '';
+  el.innerHTML = rows.length ? '' : '<p class="muted" style="font-size:14px;">' + (MV_MAP.size ? '검색 결과가 없어요.' : '아직 등록된 영상이 없어요.') + '</p>';
+  rows.forEach(v=>{
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:0.5px solid var(--border);';
+    row.innerHTML = '<a href="' + escapeAttr(v.url) + '" target="_blank" rel="noopener" style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-primary); text-decoration:none; font-size:15px;">▶ ' + escapeHtml(v.name) + '</a>'
+      + '<button type="button" class="mv-edit" style="height:30px; font-size:13px; padding:0 10px;">수정</button>'
+      + '<button type="button" class="mv-del danger" style="height:30px; font-size:13px; padding:0 10px;">삭제</button>';
+    row.querySelector('.mv-edit').onclick = ()=> promptMovementVideo(v.name, v.url);
+    row.querySelector('.mv-del').onclick = async ()=>{
+      if(!confirm('"' + v.name + '" 영상을 삭제할까요?')) return;
+      const { error } = await sb.from('movement_videos').delete().eq('name', v.name);
+      if(error){ alert('삭제에 실패했어요: ' + error.message); return; }
+      await loadMovementVideos();
+      renderMovementVideoList();
+      renderMovementPicker();
+    };
+    el.appendChild(row);
+  });
+}
+new MutationObserver(muts=>{
+  if(!MV_MAP) return;
+  for(const m of muts) for(const n of m.addedNodes){
+    if(n.nodeType !== 1 || n.classList.contains('mv-btn')) continue;
+    if(n.matches('[data-mv]') || n.querySelector('[data-mv]')) decorateMovementVideos(n.matches('[data-mv]') ? n.parentNode : n);
+  }
+}).observe(document.body, { childList: true, subtree: true });
+loadMovementVideos();
 
 // 항목 편집기에서 쓰는 기록 방식 목록. validateProgramItems / parse-wod.ts와 같은 9개 타입을 써야 함.
 const ITEM_TYPES = [
@@ -563,7 +727,19 @@ async function unlockAdmin(){
   fadeSwap(document.getElementById('admin-panel'), document.getElementById('admin-gate'));
   document.getElementById('admin-date').value = todayStr();
   renderAdminProgramList();
+  renderMovementVideoList();
+  renderMovementPicker();
+  decorateMovementVideos(document);
 }
+document.getElementById('mv-date').onchange = ()=> renderMovementPicker();
+document.getElementById('mv-add-btn').onclick = async ()=>{
+  const st = document.getElementById('mv-status');
+  const err = await saveMovementVideo(document.getElementById('mv-name').value, document.getElementById('mv-url').value);
+  st.className = 'status ' + (err ? 'err' : 'ok');
+  st.textContent = err || '저장했어요';
+  if(!err){ document.getElementById('mv-name').value = ''; document.getElementById('mv-url').value = ''; }
+};
+document.getElementById('mv-search').oninput = ()=> renderMovementVideoList();
 document.getElementById('admin-unlock-btn').onclick = unlockAdmin;
 document.getElementById('admin-pw').onkeydown = (e)=>{ if(e.key === 'Enter') unlockAdmin(); };
 
@@ -958,19 +1134,365 @@ function handleLogDateChange(date){
   renderLogForm(date);
 }
 
+// ---------- 무게 힌트: 이름을 넣으면 지난 기록·최고 기록을 보여주고, "@85%"가 있으면 무게를 계산해요 ----------
+const normLiftName = s => String(s || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+function roundToPlate(kg, unit){
+  const step = unit === 'lb' ? 5 : 2.5;
+  return Math.round(fromKg(kg, unit) / step) * step;
+}
+function parsePercent(text){
+  const m = String(text || '').match(/@\s*(\d{2,3})\s*%/);
+  return m ? parseInt(m[1], 10) : null;
+}
+const OF_TODAY_RE = /of what you hit|of today|of (the )?heaviest|of that/i;
+function shortDate(d){ const p = String(d).split('-'); return p.length === 3 ? (+p[1]) + '/' + (+p[2]) : d; }
+
+function setupWeightHints(el, program, date){
+  const nameInput = document.getElementById('log-username');
+  if(!nameInput) return;
+  if(!nameInput.value) nameInput.value = localStorage.getItem('bruteLogName') || '';
+  let hist = [], keyLifts = [], timer = null;
+
+  const findKeyLift = (itemName)=>{
+    const n = normLiftName(itemName);
+    return keyLifts.find(k => normLiftName(k.lift_name) === n)
+      || keyLifts.find(k => { const k2 = normLiftName(k.lift_name); return k2.length >= 4 && (n.includes(k2) || k2.includes(n)); });
+  };
+
+  const renderCard = (card)=>{
+    const box = card.querySelector('.calc-hint');
+    if(!box) return;
+    const it = program.items[card.dataset.idx];
+    const unitSel = card.querySelector('.unit-select');
+    const unit = unitSel ? unitSel.value : getPreferredUnit();
+    const u = unit === 'lb' ? 'lb' : 'kg';
+    const n = normLiftName(it.name);
+    const past = hist.filter(r => normLiftName(r.item_name) === n && r.date < date && !r.skipped && !isNaN(parseFloat(r.value)));
+    const last = past[0];
+    const best = past.reduce((m, r)=> Math.max(m, parseFloat(r.value)), 0);
+    const key = findKeyLift(it.name);
+    const lines = [];
+    if(last){
+      const lv = parseFloat(last.value);
+      lines.push('<div style="color:var(--text-secondary);">지난 기록 ' + formatWeight(lv, unit) + ' · ' + shortDate(last.date) + (best > lv ? ' &nbsp;·&nbsp; 최고 ' + formatWeight(best, unit) : '') + '</div>');
+    }
+    const pct = parsePercent(it.prescribed);
+    const calcLine = (kg, note)=> '<div style="color:var(--border-accent); font-weight:500;">' + pct + '% → ' + roundToPlate(kg * pct / 100, unit) + u + ' <span style="font-weight:400;">(' + note + ')</span></div>';
+    if(pct){
+      const inp = card.querySelector('.rec-input');
+      const todayVal = inp && parseFloat(inp.value);
+      if(OF_TODAY_RE.test(it.prescribed)){
+        if(todayVal) lines.push(calcLine(toKg(todayVal, unit), '오늘 ' + todayVal + u + ' 기준'));
+        else lines.push('<div style="color:var(--text-muted);">오늘 무게를 넣으면 ' + pct + '% 무게를 계산해줘요</div>');
+      } else if(key){
+        lines.push(calcLine(key.value_kg, '주요 리프트 ' + escapeHtml(key.lift_name) + ' ' + formatWeight(key.value_kg, unit) + ' 기준'));
+      } else if(best){
+        lines.push(calcLine(best, '지난 최고 ' + formatWeight(best, unit) + ' 기준'));
+      }
+    }
+    box.innerHTML = lines.join('');
+    box.style.display = lines.length ? 'flex' : 'none';
+  };
+  const renderAll = ()=> el.querySelectorAll('.card[data-idx]').forEach(renderCard);
+
+  const load = async ()=>{
+    const name = nameInput.value.trim();
+    localStorage.setItem('bruteLogName', name);
+    if(!name){ hist = []; keyLifts = []; renderAll(); return; }
+    const [r1, r2] = await Promise.all([
+      sb.from('records').select('item_name, value, date, skipped').eq('name', name).eq('type', 'weight').order('date', { ascending: false }),
+      sb.from('key_lifts').select('lift_name, value_kg').eq('name', name)
+    ]);
+    if(nameInput.value.trim() !== name) return;
+    hist = r1.data || [];
+    keyLifts = r2.data || [];
+    renderAll();
+  };
+  nameInput.addEventListener('input', ()=>{ clearTimeout(timer); timer = setTimeout(load, 400); });
+  el.querySelectorAll('.card[data-idx]').forEach(card=>{
+    if(!card.querySelector('.calc-hint')) return;
+    const inp = card.querySelector('.rec-input');
+    const sel = card.querySelector('.unit-select');
+    if(inp) inp.addEventListener('input', ()=> renderCard(card));
+    if(sel) sel.addEventListener('change', ()=> renderCard(card));
+  });
+  load();
+}
+
+// ---------- Personal Training: 프로그램 외 개인 운동 (영문 UI, 순위 제외) ----------
+const PERSONAL_SECTION = 'Personal';
+const PERSONAL_TYPES = [
+  { key: 'accessory', label: 'Accessory', hint: '세트별 무게 × 횟수 (무게 선택)' },
+  { key: 'skill', label: 'Skill', hint: '오늘 연습한 내용 메모' },
+  { key: 'lifting', label: 'Lifting', hint: '세트별 무게 × 횟수' },
+  { key: 'emom', label: 'EMOM', hint: 'N분마다 반복, 동작별 횟수' },
+  { key: 'fortime', label: 'For Time', hint: '동작 + 완료 시간' },
+  { key: 'amrap', label: 'AMRAP', hint: '동작 + 라운드·개수' }
+];
+
+function ensurePersonalDatalist(programItems){
+  let dl = document.getElementById('personal-movements');
+  if(!dl){ dl = document.createElement('datalist'); dl.id = 'personal-movements'; document.body.appendChild(dl); }
+  const names = new Set();
+  (programItems || []).forEach(it=>{
+    if(it.name && it.name !== 'Warm Up') names.add(it.name);
+    (it.movements || []).forEach(m => names.add(m));
+  });
+  const fill = ()=>{ dl.innerHTML = [...names].sort().map(n => '<option value="' + escapeAttr(n) + '"></option>').join(''); };
+  fill();
+  sb.from('records').select('item_name').then(({ data })=>{
+    (data || []).forEach(r=>{ if(r.item_name && !/\s-\s/.test(r.item_name)) names.add(r.item_name); });
+    fill();
+  });
+}
+
+function parsePersonalDetail(r){
+  const d = r && r.scale_detail;
+  if(!d || d[0] !== '§') return null;
+  try { return JSON.parse(d.slice(1)); } catch(e){ return null; }
+}
+function personalDetailHtml(r, unit){
+  const p = parsePersonalDetail(r);
+  if(!p) return null;
+  const w = kg => formatWeight(kg, unit);
+  const rows = [];
+  if(p.spec) rows.push('<div style="color:var(--text-muted);">' + escapeHtml(p.spec) + '</div>');
+  if(p.sets && p.sets.length){
+    rows.push('<div style="display:grid; grid-template-columns:auto minmax(0,1fr); gap:2px 14px;">'
+      + p.sets.map((s, i) => '<span style="color:var(--text-muted);">' + (i + 1) + '세트</span><span>'
+        + (s.kg != null ? w(s.kg) + (s.r ? ' × ' + escapeHtml(s.r) : '') : escapeHtml(s.r) + '회') + '</span>').join('')
+      + '</div>');
+  }
+  if(p.moves && p.moves.length){
+    rows.push('<div style="display:flex; flex-direction:column; gap:2px;">' + p.moves.map(m => '<span>' + escapeHtml([m.r, m.n].filter(Boolean).join(' '))
+      + (m.kg != null ? ' <span style="color:var(--text-muted);">@ ' + w(m.kg) + '</span>' : '') + '</span>').join('') + '</div>');
+  }
+  let html = rows.length ? '<div style="display:flex; flex-direction:column; gap:6px; margin-top:6px; font-size:14px; line-height:1.5; color:var(--text-secondary);">' + rows.join('') + '</div>' : '';
+  if(p.notes) html += '<div style="margin-top:6px;"><span class="tag scaled" style="white-space:normal;">※ ' + escapeHtml(p.notes) + '</span></div>';
+  return html;
+}
+
+function buildPersonalSection(programItems){
+  ensurePersonalDatalist(programItems);
+  const box = document.createElement('div');
+  box.style.cssText = 'background:var(--surface-2); border:1px dashed var(--border-strong); border-radius:var(--radius-lg); padding:16px; margin-bottom:16px;';
+  box.innerHTML = '<p class="eyebrow">PERSONAL</p>'
+    + '<h3 style="font-size:18px; font-weight:500; margin:0 0 4px;">Personal Training</h3>'
+    + '<p class="muted" style="margin:0 0 12px; font-size:14px;">프로그램 외 개인 운동이에요. 내 프로필에만 저장되고 전체 기록에는 안 나와요.</p>'
+    + '<div class="p-entries" style="display:flex; flex-direction:column; gap:12px;"></div>'
+    + '<div class="p-picker" style="display:none; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin-top:12px;"></div>'
+    + '<button type="button" class="p-add" style="margin-top:12px; height:40px; width:100%;">+ 운동 추가</button>';
+  const entries = box.querySelector('.p-entries');
+  const picker = box.querySelector('.p-picker');
+  const addBtn = box.querySelector('.p-add');
+
+  PERSONAL_TYPES.forEach(t=>{
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.style.cssText = 'height:auto; padding:10px 12px; text-align:left; display:flex; flex-direction:column; align-items:flex-start; gap:2px;';
+    b.innerHTML = '<span style="font-weight:600; font-size:15px;">' + t.label + '</span><span class="muted" style="font-size:12px; font-weight:400;">' + t.hint + '</span>';
+    b.onclick = ()=>{ addEntry(t.key); picker.style.display = 'none'; addBtn.textContent = '+ 운동 추가'; };
+    picker.appendChild(b);
+  });
+  addBtn.onclick = ()=>{
+    const open = picker.style.display === 'none';
+    picker.style.display = open ? 'grid' : 'none';
+    addBtn.textContent = open ? '취소' : '+ 운동 추가';
+  };
+
+  const field = (label, html)=> '<div style="display:flex; flex-direction:column; gap:4px; min-width:0;"><span class="muted" style="font-size:12px;">' + label + '</span>' + html + '</div>';
+  const notesHtml = '<input type="text" class="p-notes" placeholder="메모 (선택)" style="width:100%; margin-top:10px; font-size:15px;" />';
+
+  function addSetRow(card, copy){
+    const wrap = card.querySelector('.p-sets');
+    const isLift = card.dataset.ptype === 'lifting';
+    const row = document.createElement('div');
+    row.className = 'p-set';
+    row.style.cssText = 'display:grid; grid-template-columns:44px minmax(0,1fr) 14px minmax(0,1fr) 32px; gap:6px; align-items:center; margin-bottom:6px;';
+    row.innerHTML = '<span class="muted p-set-label" style="font-size:13px;"></span>'
+      + '<input type="number" step="0.1" inputmode="decimal" class="p-w" placeholder="' + (isLift ? '무게' : '무게 (선택)') + '" style="min-width:0;" />'
+      + '<span class="muted" style="text-align:center;">×</span>'
+      + '<input type="number" inputmode="numeric" class="p-r" placeholder="횟수" style="min-width:0;" />'
+      + '<button type="button" class="p-del" title="세트 삭제" style="width:32px; height:32px; ' + ICON_BTN_STYLE + '">✕</button>';
+    if(copy){ row.querySelector('.p-w').value = copy.querySelector('.p-w').value; row.querySelector('.p-r').value = copy.querySelector('.p-r').value; }
+    row.querySelector('.p-del').onclick = ()=>{ if(wrap.children.length > 1){ row.remove(); renumber(); } };
+    wrap.appendChild(row);
+    const renumber = ()=> [...wrap.children].forEach((r, i)=> r.querySelector('.p-set-label').textContent = (i + 1) + '세트');
+    renumber();
+  }
+
+  function addMoveRow(card){
+    const wrap = card.querySelector('.p-moves');
+    const row = document.createElement('div');
+    row.className = 'p-move';
+    row.style.cssText = 'display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 32px; gap:6px; align-items:center; margin-bottom:6px;';
+    row.innerHTML = '<input type="text" class="p-mn" list="personal-movements" placeholder="동작" style="min-width:0;" />'
+      + '<input type="text" class="p-mr" placeholder="횟수/칼로리" style="min-width:0;" />'
+      + '<input type="number" step="0.1" inputmode="decimal" class="p-mw" placeholder="무게" style="min-width:0;" />'
+      + '<button type="button" class="p-del" title="동작 삭제" style="width:32px; height:32px; ' + ICON_BTN_STYLE + '">✕</button>';
+    row.querySelector('.p-del').onclick = ()=>{ if(wrap.children.length > 1) row.remove(); };
+    wrap.appendChild(row);
+  }
+
+  function addEntry(type){
+    const t = PERSONAL_TYPES.find(x => x.key === type);
+    const card = document.createElement('div');
+    card.className = 'card p-entry';
+    card.style.margin = '0';
+    card.dataset.ptype = type;
+    const unit = getPreferredUnit();
+    const unitSel = type === 'skill' ? '' : '<select class="p-unit" style="width:68px; padding:0 6px;"><option value="lb"' + (unit === 'lb' ? ' selected' : '') + '>lb</option><option value="kg"' + (unit === 'kg' ? ' selected' : '') + '>kg</option></select>';
+    let body = '';
+    const movesBlock = '<div class="p-moves" style="margin-top:10px;"></div><button type="button" class="p-add-move" style="height:32px; font-size:14px;">+ 동작 추가</button>';
+    if(type === 'accessory' || type === 'lifting'){
+      body = '<input type="text" class="p-name" list="personal-movements" placeholder="동작 이름" style="width:100%; margin-bottom:10px;" />'
+        + '<div class="p-sets"></div><button type="button" class="p-add-set" style="height:32px; font-size:14px;">+ 세트 추가</button>' + notesHtml;
+    } else if(type === 'skill'){
+      body = '<input type="text" class="p-name" list="personal-movements" placeholder="스킬 (예: Handstand Walk)" style="width:100%; margin-bottom:8px;" />'
+        + '<textarea class="p-notes" rows="3" placeholder="오늘 뭘 연습했고 어디까지 됐는지 적어주세요" style="width:100%; font-size:15px; resize:vertical;"></textarea>';
+    } else if(type === 'emom'){
+      body = '<input type="text" class="p-name" placeholder="이름 (선택)" style="width:100%; margin-bottom:10px;" />'
+        + '<div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px;">'
+        + field('간격 (분)', '<input type="number" inputmode="numeric" class="p-every" value="1" min="1" />')
+        + field('라운드', '<input type="number" inputmode="numeric" class="p-rounds" placeholder="10" />')
+        + '</div>' + movesBlock
+        + '<div style="display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:8px; margin-top:10px;">'
+        + field('결과', '<select class="p-result"><option value="">선택</option><option value="done">전체 완료</option><option value="fail">중간 실패</option></select>')
+        + '<div class="p-fail-wrap" style="visibility:hidden;">' + field('실패 라운드', '<input type="number" inputmode="numeric" class="p-fail-round" />') + '</div>'
+        + '</div>' + notesHtml;
+    } else if(type === 'fortime'){
+      body = '<input type="text" class="p-name" placeholder="이름 (선택, 예: Fran)" style="width:100%; margin-bottom:10px;" />'
+        + field('라운드', '<input type="number" inputmode="numeric" class="p-rounds" placeholder="1" style="width:100px;" />')
+        + movesBlock
+        + '<div class="p-time-wrap" style="margin-top:10px;">' + field('시간', '<div style="display:flex; gap:4px; align-items:center;"><input type="number" inputmode="numeric" class="p-min" placeholder="분" style="width:70px;" /><span>:</span><input type="number" inputmode="numeric" class="p-sec" placeholder="초" style="width:70px;" /></div>') + '</div>'
+        + '<label style="display:flex; align-items:center; gap:6px; font-size:15px; margin:10px 0 0;"><input type="checkbox" class="p-capped" style="width:auto; height:auto;" />타임캡 걸림</label>'
+        + '<div class="p-cap-wrap" style="display:none; margin-top:8px;">' + field('완료한 개수', '<input type="number" inputmode="numeric" class="p-cap-reps" style="width:120px;" />') + '</div>'
+        + notesHtml;
+    } else if(type === 'amrap'){
+      body = '<input type="text" class="p-name" placeholder="이름 (선택, 예: Cindy)" style="width:100%; margin-bottom:10px;" />'
+        + field('시간 (분)', '<input type="number" inputmode="numeric" class="p-duration" placeholder="12" style="width:100px;" />')
+        + movesBlock
+        + '<div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin-top:10px;">'
+        + field('라운드', '<input type="number" inputmode="numeric" class="p-res-rounds" />')
+        + field('+ 개수', '<input type="number" inputmode="numeric" class="p-res-reps" />')
+        + '</div>' + notesHtml;
+    }
+    card.innerHTML = '<div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">'
+      + '<span style="font-size:13px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--border-accent);">' + t.label + '</span>'
+      + '<span style="flex:1;"></span>' + unitSel
+      + '<button type="button" class="p-remove" title="삭제" style="width:32px; height:32px; ' + ICON_BTN_DANGER_STYLE + '">' + TRASH_ICON_SVG + '</button></div>'
+      + body;
+    card.querySelector('.p-remove').onclick = ()=> card.remove();
+    if(card.querySelector('.p-sets')){
+      addSetRow(card);
+      card.querySelector('.p-add-set').onclick = ()=>{ const rows = card.querySelectorAll('.p-set'); addSetRow(card, rows[rows.length - 1]); };
+    }
+    if(card.querySelector('.p-moves')){
+      addMoveRow(card);
+      card.querySelector('.p-add-move').onclick = ()=> addMoveRow(card);
+    }
+    const res = card.querySelector('.p-result');
+    if(res) res.onchange = ()=>{ card.querySelector('.p-fail-wrap').style.visibility = res.value === 'fail' ? 'visible' : 'hidden'; };
+    const cap = card.querySelector('.p-capped');
+    if(cap) cap.onchange = ()=>{
+      card.querySelector('.p-cap-wrap').style.display = cap.checked ? 'block' : 'none';
+      card.querySelector('.p-time-wrap').style.display = cap.checked ? 'none' : 'block';
+    };
+    entries.appendChild(card);
+    const first = card.querySelector('.p-name');
+    if(first) first.focus();
+  }
+
+  function collect(date, name){
+    const out = [];
+    entries.querySelectorAll('.p-entry').forEach(card=>{
+      const type = card.dataset.ptype;
+      const q = s => card.querySelector(s);
+      const val = s => { const e = q(s); return e ? String(e.value).trim() : ''; };
+      const unit = q('.p-unit') ? q('.p-unit').value : getPreferredUnit();
+      const kgOf = v => { const n = parseFloat(v); return isNaN(n) ? null : Math.round(toKg(n, unit) * 100) / 100; };
+      const notes = val('.p-notes');
+      const nm = val('.p-name');
+      const push = (item_name, recType, value, detail)=>{
+        Object.keys(detail).forEach(k => { const v = detail[k]; if(v == null || v === '' || (Array.isArray(v) && !v.length)) delete detail[k]; });
+        out.push({ date, name, item_name, section: PERSONAL_SECTION, type: recType, value: String(value), scaled: !!detail.notes, scale_detail: '§' + JSON.stringify(detail), skipped: false });
+      };
+      const moves = [...card.querySelectorAll('.p-move')].map(r => ({
+        n: r.querySelector('.p-mn').value.trim(), r: r.querySelector('.p-mr').value.trim(), kg: kgOf(r.querySelector('.p-mw').value)
+      })).filter(m => m.n);
+      const autoTitle = moves.map(m => m.n).join(' + ');
+      if(moves.some(m => m.kg != null)) setPreferredUnit(unit);
+
+      if(type === 'accessory' || type === 'lifting'){
+        if(!nm) return;
+        const sets = [...card.querySelectorAll('.p-set')].map(r => ({ kg: kgOf(r.querySelector('.p-w').value), r: r.querySelector('.p-r').value.trim() }))
+          .filter(s => s.kg != null || s.r);
+        if(!sets.length) return;
+        const weighted = sets.filter(s => s.kg != null);
+        if(weighted.length){
+          setPreferredUnit(unit);
+          push(nm, 'weight', Math.max(...weighted.map(s => s.kg)), { sets, notes });
+        } else {
+          const total = sets.reduce((a, s) => a + (parseInt(s.r) || 0), 0);
+          push(nm, 'reps', total, { sets, notes });
+        }
+      } else if(type === 'skill'){
+        if(!nm && !notes) return;
+        push(nm || 'Skill Practice', 'note', 'Practice', { notes });
+      } else if(type === 'emom'){
+        const r = val('.p-result');
+        if(!r) return;
+        const every = parseInt(val('.p-every')) || 1;
+        const rounds = parseInt(val('.p-rounds'));
+        const label = every === 1 ? 'EMOM' : 'E' + every + 'MOM';
+        const spec = label + (rounds ? ' · ' + rounds + ' rounds (' + every * rounds + ' min)' : '');
+        const value = r === 'done' ? 'Completed' : 'Failed R' + (val('.p-fail-round') || '?');
+        push(nm || (label + ' ' + autoTitle).trim(), 'emom_complete', value, { spec, moves, notes });
+      } else if(type === 'fortime'){
+        const rounds = parseInt(val('.p-rounds'));
+        const detail = { spec: rounds > 1 ? rounds + ' rounds for time' : '', moves, notes };
+        const title = nm || autoTitle || 'For Time';
+        if(q('.p-capped').checked){
+          push(title, 'amrap', 'CAP +' + (val('.p-cap-reps') || 0) + ' reps', detail);
+        } else {
+          const m = val('.p-min'), s = val('.p-sec');
+          if(!m && !s) return;
+          push(title, 'for_time', (parseInt(m) || 0) + ':' + String(parseInt(s) || 0).padStart(2, '0'), detail);
+        }
+      } else if(type === 'amrap'){
+        const r = val('.p-res-rounds'), rp = val('.p-res-reps');
+        if(!r && !rp) return;
+        const dur = val('.p-duration');
+        push(nm || autoTitle || 'AMRAP', 'amrap', (parseInt(r) || 0) + ' rounds + ' + (parseInt(rp) || 0) + ' reps', { spec: dur ? dur + ' min AMRAP' : '', moves, notes });
+      }
+    });
+    return out;
+  }
+
+  return { box, collect };
+}
+
 async function renderLogForm(date){
   const el = document.getElementById('log-form');
   el.innerHTML = '<p class="muted">불러오고 있어요...</p>';
   const { data, error } = await sb.from('programs').select('*').eq('date', date).single();
-  if(error || !data){ el.innerHTML = '<p class="muted">프로그램을 찾을 수 없어요.</p>'; return; }
-  const program = data;
+  const program = (error || !data) ? { items: [] } : data;
   el.innerHTML = '';
+  if(!program.items || !program.items.length){
+    program.items = [];
+    const none = document.createElement('p');
+    none.className = 'muted';
+    none.style.margin = '0 0 16px';
+    none.textContent = '이 날은 프로그램이 없어요. 아래에서 개인 운동은 기록할 수 있어요.';
+    el.appendChild(none);
+  }
 
 
   const nameWrap = document.createElement('div');
   nameWrap.style.marginBottom = "16px";
   nameWrap.innerHTML = `<label>이름</label><input type="text" id="log-username" class="name-input" placeholder="이름을 입력해주세요" />`;
   el.appendChild(nameWrap);
+  setTimeout(()=> setupWeightHints(el, program, date), 0);
 
   // section별로 큰 박스, 그 안에서 subsection별로 소분류
   const bySection = {};
@@ -1051,6 +1573,7 @@ async function renderLogForm(date){
             <span class="item-name">${it.name}</span>
           </div>
           <div class="muted" style="margin:0 0 10px; line-height:1.55;">${formatPrescribed(it.prescribed)}</div>
+          ${it.type === 'weight' ? '<div class="calc-hint" style="display:flex; flex-direction:column; gap:2px; font-size:14px; line-height:1.5; margin:0 0 10px;"></div>' : ''}
           <div class="row" style="margin-bottom:8px;">
             <label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="skip-check" style="width:auto; height:auto;" />오늘 생략</label>
           </div>
@@ -1239,6 +1762,9 @@ async function renderLogForm(date){
     return card;
   }
 
+  const personal = buildPersonalSection(program.items);
+  el.appendChild(personal.box);
+
   const saveWrap = document.createElement('div');
   saveWrap.className = 'row';
   saveWrap.style.marginTop = '16px';
@@ -1342,6 +1868,7 @@ async function renderLogForm(date){
         value, scaled, scale_detail: scaleDetail, skipped: false
       });
     });
+    records.push(...personal.collect(date, name));
     if(records.length === 0){ status.textContent = "기록을 최소 1개 이상 입력해주세요"; status.className = "status err"; saveBtn.disabled = false; return; }
     const { error } = await sb.from('records').insert(records);
     if(error){ status.textContent = "저장에 실패했어요: " + error.message; status.className = "status err"; saveBtn.disabled = false; return; }
@@ -1399,9 +1926,10 @@ async function renderBoard(){
     contentBox.innerHTML = '<p class="muted">불러오고 있어요...</p>';
 
     const { data: program } = await sb.from('programs').select('*').eq('date', date).single();
-    const { data: records, error } = await sb.from('records').select('*').eq('date', date);
+    const { data: allRecords, error } = await sb.from('records').select('*').eq('date', date);
     if(error){ contentBox.innerHTML = `<p class="status err">${error.message}</p>`; return; }
-    if(!records || records.length === 0){ contentBox.innerHTML = '<p class="muted">이 날짜에 등록된 기록이 없어요.</p>'; return; }
+    const records = (allRecords || []).filter(r => r.section !== PERSONAL_SECTION);
+    if(records.length === 0){ contentBox.innerHTML = '<p class="muted">이 날짜에 등록된 기록이 없어요.</p>'; return; }
 
     const byItemName = {};
     records.forEach(r=>{
@@ -1653,7 +2181,15 @@ function buildPrivacyPanel(name, setting){
       <div class="row" style="margin-bottom:0;">
         <button class="primary" data-act="public">공개로 바꾸기</button>
         <button data-act="relock">이 기기에서 잠그기</button>
+        <button data-act="change-open">PIN 바꾸기</button>
         ${isAdminUnlocked() ? '<button class="danger" data-act="reset">PIN 초기화</button>' : ''}
+      </div>
+      <div class="pin-change-wrap hidden" style="margin-top:12px;">
+        <div class="row" style="margin-bottom:0;">
+          <input type="password" inputmode="numeric" maxlength="4" autocomplete="off" class="pin-old" placeholder="지금 PIN" style="width:110px; text-align:center; letter-spacing:0.2em;" />
+          <input type="password" inputmode="numeric" maxlength="4" autocomplete="off" class="pin-new" placeholder="새 PIN" style="width:110px; text-align:center; letter-spacing:0.2em;" />
+          <button class="primary" data-act="change">변경</button>
+        </div>
       </div>
       <p class="status" style="margin:8px 0 0;"></p>`;
   } else {
@@ -1690,6 +2226,26 @@ function buildPrivacyPanel(name, setting){
         if(error){ fail('저장에 실패했어요: ' + error.message); return; }
         if(!data || !data.ok){ fail(pinErrorMessage(data)); return; }
         showProfileDetail(name);
+      } else if(act === 'change-open'){
+        const w = panel.querySelector('.pin-change-wrap');
+        w.classList.toggle('hidden');
+        if(!w.classList.contains('hidden')) w.querySelector('.pin-old').focus();
+      } else if(act === 'change'){
+        const oldPin = panel.querySelector('.pin-old').value.trim();
+        const newPin = panel.querySelector('.pin-new').value.trim();
+        if(!/^\d{4}$/.test(oldPin) || !/^\d{4}$/.test(newPin)){ fail('PIN은 숫자 4자리로 입력해주세요.'); return; }
+        if(oldPin === newPin){ fail('새 PIN이 지금 PIN과 같아요.'); return; }
+        b.disabled = true;
+        const { data, error } = await sb.rpc('profile_change_pin', { p_name: name, p_old: oldPin, p_new: newPin });
+        b.disabled = false;
+        if(error){ fail('변경에 실패했어요: ' + error.message); return; }
+        if(!data || !data.ok){ fail(pinErrorMessage(data)); return; }
+        setProfileToken(name, data.token);
+        status.className = 'status ok';
+        status.textContent = 'PIN을 바꿨어요. 다른 기기는 새 PIN으로 다시 열어야 해요.';
+        panel.querySelector('.pin-old').value = '';
+        panel.querySelector('.pin-new').value = '';
+        panel.querySelector('.pin-change-wrap').classList.add('hidden');
       } else if(act === 'relock'){
         const token = getProfileTokens()[name];
         if(token) await sb.rpc('brute_logout', { p_token: token });
@@ -1974,7 +2530,7 @@ function renderProfileBody(unit){
           line.style.color = 'var(--text-muted)';
           line.innerHTML = `<span class="muted">${r.date}</span> — 생략${r.scale_detail ? ' ('+r.scale_detail.replace('생략: ','')+')' : ''}`;
         } else {
-          const detailTag = r.scaled ? `<div style="margin-top:4px;"><span class="tag scaled">※${r.scale_detail ? ' '+r.scale_detail : ''}</span></div>` : '';
+          const detailTag = personalDetailHtml(r, unit) ?? (r.scaled ? `<div style="margin-top:4px;"><span class="tag scaled">※${r.scale_detail ? ' '+r.scale_detail : ''}</span></div>` : '');
           const displayValue = r.type === 'weight' ? formatWeight(parseFloat(r.value) || 0, unit) : r.value;
           line.innerHTML = `<span class="muted">${r.date}</span> — <strong style="font-weight:500;">${displayValue}</strong>${detailTag}`;
         }
@@ -2060,7 +2616,7 @@ function showProfileItemDetail(name, itemName, records, isWeightType, isNumeric)
       textSpan.style.color = 'var(--text-muted)';
       textSpan.innerHTML = `<span class="muted">${r.date}</span> — 생략${r.scale_detail ? ' ('+r.scale_detail.replace('생략: ','')+')' : ''}`;
     } else {
-      const detailTag = r.scaled ? `<div style="margin-top:4px;"><span class="tag scaled">※${r.scale_detail ? ' '+r.scale_detail : ''}</span></div>` : '';
+      const detailTag = personalDetailHtml(r, unit) ?? (r.scaled ? `<div style="margin-top:4px;"><span class="tag scaled">※${r.scale_detail ? ' '+r.scale_detail : ''}</span></div>` : '');
       const displayValue = r.type === 'weight' ? formatWeight(parseFloat(r.value) || 0, unit) : r.value;
       textSpan.innerHTML = `<span class="muted">${r.date}</span> — <strong style="font-weight:500;">${displayValue}</strong>${detailTag}`;
     }
@@ -2682,7 +3238,7 @@ function buildDateLookupBox(records, unit){
             textSpan.style.color = 'var(--text-muted)';
             textSpan.innerHTML = `${r.item_name} — 생략${(!suppressTag && r.scale_detail) ? ' ('+r.scale_detail.replace('생략: ','')+')' : ''}`;
           } else {
-            const detailTag = (r.scaled && !suppressTag) ? `<div style="margin-top:4px;"><span class="tag scaled">※${r.scale_detail ? ' '+r.scale_detail : ''}</span></div>` : '';
+            const detailTag = personalDetailHtml(r, unit) ?? ((r.scaled && !suppressTag) ? `<div style="margin-top:4px;"><span class="tag scaled">※${r.scale_detail ? ' '+r.scale_detail : ''}</span></div>` : '');
             const displayValue = r.type === 'weight' ? formatWeight(parseFloat(r.value) || 0, unit) : r.value;
             textSpan.innerHTML = `${r.item_name} — <strong style="font-weight:500;">${displayValue}</strong>${detailTag}`;
           }
@@ -2860,7 +3416,9 @@ async function startEditRecord(record, lineEl, textSpan, unit, onSaved, onDelete
   const detailInput = document.createElement('input');
   detailInput.type = 'text';
   detailInput.placeholder = '세부기록 (선택)';
-  detailInput.value = record.scale_detail || '';
+  const personalDetail = parsePersonalDetail(record);
+  detailInput.value = personalDetail ? (personalDetail.notes || '') : (record.scale_detail || '');
+  if(personalDetail) detailInput.placeholder = '메모 (선택)';
   detailInput.style.cssText = 'width:100%; margin-top:6px;';
   editForm.appendChild(detailInput);
 
@@ -2885,8 +3443,10 @@ async function startEditRecord(record, lineEl, textSpan, unit, onSaved, onDelete
       const u = unitSelect.value;
       newValue = (Math.round(toKg(parseFloat(newValue), u) * 100) / 100).toString();
     }
-    const newDetail = detailInput.value.trim();
-    const { error } = await sb.from('records').update({ value: newValue, scale_detail: newDetail, scaled: !!newDetail }).eq('id', record.id);
+    const newNotes = detailInput.value.trim();
+    let newDetail = newNotes;
+    if(personalDetail){ const pd = { ...personalDetail }; if(newNotes) pd.notes = newNotes; else delete pd.notes; newDetail = '§' + JSON.stringify(pd); }
+    const { error } = await sb.from('records').update({ value: newValue, scale_detail: newDetail, scaled: !!newNotes }).eq('id', record.id);
     if(error){ alert('수정에 실패했어요: ' + error.message); return; }
     record.value = newValue;
     record.scale_detail = newDetail;
