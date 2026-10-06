@@ -93,24 +93,33 @@ function slideToggle(el, open){
   if(open === undefined) open = !isOpen;
   if(open === isOpen) return;
   el.dataset.open = open ? '1' : '';
+  const tok = el._slideTok = (el._slideTok || 0) + 1;
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const ease = 'cubic-bezier(0.32, 0.72, 0, 1)';
+  const from = el.style.display === 'none' || getComputedStyle(el).display === 'none' ? 0 : el.getBoundingClientRect().height;
   el.style.overflow = 'hidden';
   el.style.transition = 'none';
-  const done = fn => { const te = e => { if(e.target === el && e.propertyName === 'height'){ el.removeEventListener('transitionend', te); fn(); } }; el.addEventListener('transitionend', te); };
+  const finish = fn => {
+    if(reduce){ fn(); return; }
+    const te = e => { if(e.target !== el || e.propertyName !== 'height') return; el.removeEventListener('transitionend', te); if(el._slideTok === tok) fn(); };
+    el.addEventListener('transitionend', te);
+  };
   if(open){
     el.style.display = 'block';
+    el.style.height = 'auto';
     const target = el.scrollHeight;
-    el.style.height = '0px'; el.style.opacity = '0'; el.style.transform = 'translateY(-6px)';
+    el.style.height = from + 'px';
+    if(!from){ el.style.opacity = '0'; el.style.transform = 'translateY(-4px)'; }
     el.getBoundingClientRect();
-    el.style.transition = 'height 420ms ' + ease + ', opacity 300ms ease, transform 420ms ' + ease;
+    if(!reduce) el.style.transition = 'height 280ms ' + ease + ', opacity 200ms ease, transform 280ms ' + ease;
     el.style.height = target + 'px'; el.style.opacity = '1'; el.style.transform = 'none';
-    done(()=>{ el.style.height = ''; el.style.overflow = ''; el.style.transition = ''; });
+    finish(()=>{ el.style.height = ''; el.style.overflow = ''; el.style.transition = ''; });
   } else {
-    el.style.height = el.scrollHeight + 'px';
+    el.style.height = from + 'px';
     el.getBoundingClientRect();
-    el.style.transition = 'height 340ms ' + ease + ', opacity 220ms ease, transform 340ms ' + ease;
+    if(!reduce) el.style.transition = 'height 220ms ' + ease + ', opacity 160ms ease, transform 220ms ' + ease;
     el.style.height = '0px'; el.style.opacity = '0'; el.style.transform = 'translateY(-4px)';
-    done(()=>{ el.style.display = 'none'; el.style.height = ''; el.style.overflow = ''; el.style.transition = ''; });
+    finish(()=>{ el.style.display = 'none'; el.style.height = ''; el.style.overflow = ''; el.style.transition = ''; });
   }
 }
 
