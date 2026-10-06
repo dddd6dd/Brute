@@ -10,10 +10,10 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="죠짐 노트">
+<meta name="apple-mobile-web-app-title" content="I AM BRUTE">
 <meta name="mobile-web-app-capable" content="yes">
 
-<title>죠짐 노트</title>
+<title>I AM BRUTE</title>
 
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
 
@@ -182,7 +182,7 @@
 
 <div class="hero-card card">
   <div class="top-pill"><span class="dot"></span>FOR · JOGYM</div>
-  <h1>Today's Workout</h1>
+  <h1>I AM BRUTE</h1>
   <p class="sub">오늘 운동을 확인하고 기록을 남겨보세요.</p>
 </div>
 
@@ -345,6 +345,8 @@ const CHART_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="no
 const PENCIL_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path></svg>';
 const CHEVRON_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
 const CALCULATOR_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="10.5" x2="8" y2="10.5"></line><line x1="12" y1="10.5" x2="12" y2="10.5"></line><line x1="16" y1="10.5" x2="16" y2="10.5"></line><line x1="8" y1="14.5" x2="8" y2="14.5"></line><line x1="12" y1="14.5" x2="12" y2="14.5"></line><line x1="16" y1="14.5" x2="16" y2="14.5"></line><line x1="8" y1="18.5" x2="8" y2="18.5"></line><line x1="12" y1="18.5" x2="12" y2="18.5"></line><line x1="16" y1="18.5" x2="16" y2="18.5"></line></svg>';
+const LOCK_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+const UNLOCK_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/></svg>';
 const CLOSE_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
 
 // 항목 편집기에서 쓰는 기록 방식 목록. validateProgramItems / parse-wod.ts와 같은 9개 타입을 써야 함.
@@ -659,7 +661,7 @@ function buildItemEditorCard(item, idx){
 
   body.innerHTML = `
     <div class="row" style="gap:8px; margin-bottom:0;">
-      <div style="flex:1; min-width:120px;"><label>섹션</label><input type="text" class="ed-section" value="${escapeAttr(item.section)}" placeholder="예: 1.수컷리프팅" style="${fieldStyle}" /></div>
+      <div style="flex:1; min-width:120px;"><label>섹션</label><input type="text" class="ed-section" value="${escapeAttr(item.section)}" placeholder="예: 1.BRUTE리프팅" style="${fieldStyle}" /></div>
       <div style="flex:1; min-width:120px;"><label>소분류 (선택)</label><input type="text" class="ed-subsection" value="${escapeAttr(item.subsection)}" placeholder="예: 1)Lifting" style="${fieldStyle}" /></div>
     </div>
     <label>이름</label>
@@ -1464,12 +1466,20 @@ async function renderProfileList(){
   if(error){ el.innerHTML = `<p class="status err">${error.message}</p>`; return; }
   const names = [...new Set((data||[]).map(r=>r.name))].sort();
   if(names.length === 0){ el.innerHTML = '<p class="muted">아직 기록이 없어요.</p>'; return; }
+  const privateNames = await getPrivateProfileNames();
   el.innerHTML = '<p class="muted" style="margin-bottom:12px;">이름을 눌러 개인 기록을 확인해보세요.</p>';
   const wrap = document.createElement('div');
   names.forEach(n=>{
     const chip = document.createElement('span');
     chip.className = 'name-chip';
     chip.textContent = n;
+    if(privateNames.has(n)){
+      chip.style.cssText = 'display:inline-flex; align-items:center; gap:6px; color:var(--text-secondary);';
+      const ic = document.createElement('span');
+      ic.style.cssText = 'display:inline-flex; color:var(--text-muted);';
+      ic.innerHTML = LOCK_ICON_SVG;
+      chip.appendChild(ic);
+    }
     chip.onclick = ()=> showProfileDetail(n);
     wrap.appendChild(chip);
   });
@@ -1480,11 +1490,142 @@ let profileChartInstances = [];
 let profileCurrentData = null;
 let profileCurrentName = null;
 let profileCurrentKeyLifts = [];
+let profileCurrentSetting = null;
+
+// ---------- 프로필 공개/비공개 ----------
+// profile_settings 테이블(name, is_private, pin). 관리자 비밀번호처럼 팀 내부용 가벼운 잠금이에요.
+function getUnlockedProfiles(){
+  try { return JSON.parse(localStorage.getItem('unlockedProfiles') || '[]'); } catch(e){ return []; }
+}
+function setProfileUnlocked(name, on){
+  const s = new Set(getUnlockedProfiles());
+  if(on) s.add(name); else s.delete(name);
+  localStorage.setItem('unlockedProfiles', JSON.stringify([...s]));
+}
+function isAdminUnlocked(){
+  const p = document.getElementById('admin-panel');
+  return !!p && !p.classList.contains('hidden');
+}
+async function getProfileSetting(name){
+  const { data, error } = await sb.from('profile_settings').select('*').eq('name', name).maybeSingle();
+  if(error) return null;
+  return data;
+}
+async function getPrivateProfileNames(){
+  const { data, error } = await sb.from('profile_settings').select('name').eq('is_private', true);
+  if(error) return new Set();
+  return new Set((data||[]).map(r=>r.name));
+}
+function canViewProfile(name, setting){
+  if(!setting || !setting.is_private) return true;
+  return isAdminUnlocked() || getUnlockedProfiles().includes(name);
+}
+
+function renderLockedProfile(el, name, setting){
+  el.innerHTML = '';
+  const back = document.createElement('span');
+  back.className = 'back-link';
+  back.textContent = '← 전체 명단으로';
+  back.onclick = ()=> renderProfileList();
+  el.appendChild(back);
+
+  const box = document.createElement('div');
+  box.className = 'card';
+  box.style.cssText = 'display:flex; flex-direction:column; align-items:center; text-align:center; gap:6px; padding:32px 20px; margin-top:8px;';
+  box.innerHTML = `
+    <span style="${ICON_BTN_STYLE} width:44px; height:44px; margin-bottom:6px;">${LOCK_ICON_SVG}</span>
+    <p class="eyebrow" style="margin:0;">PRIVATE</p>
+    <h2 style="font-size:20px; font-weight:500; margin:0;"></h2>
+    <p class="muted" style="margin:0 0 14px;">비공개 프로필이에요. 본인이라면 PIN을 입력해주세요.</p>
+    <div class="row" style="justify-content:center; margin-bottom:0;">
+      <input type="password" inputmode="numeric" maxlength="4" placeholder="PIN 4자리" style="width:120px; text-align:center; letter-spacing:0.3em;" />
+      <button class="primary">열기</button>
+    </div>
+    <p class="status err" style="margin:8px 0 0; min-height:1.6em;"></p>`;
+  box.querySelector('h2').textContent = name;
+  const input = box.querySelector('input');
+  const btn = box.querySelector('button');
+  const status = box.querySelector('.status');
+  const tryUnlock = ()=>{
+    if(input.value.trim() === String(setting.pin || '')){
+      setProfileUnlocked(name, true);
+      showProfileDetail(name);
+    } else {
+      status.textContent = 'PIN이 맞지 않아요.';
+      input.value = '';
+      input.focus();
+    }
+  };
+  btn.onclick = tryUnlock;
+  input.onkeydown = (e)=>{ if(e.key === 'Enter') tryUnlock(); };
+  el.appendChild(box);
+}
+
+function buildPrivacyPanel(name, setting){
+  const panel = document.createElement('div');
+  panel.className = 'card hidden';
+  panel.style.marginBottom = '16px';
+  const isPrivate = !!(setting && setting.is_private);
+  if(isPrivate){
+    panel.innerHTML = `
+      <p class="eyebrow">PRIVACY</p>
+      <p style="margin:0 0 4px; font-weight:500;">지금 비공개 상태예요</p>
+      <p class="muted" style="margin:0 0 12px;">다른 사람은 PIN 없이 이 프로필의 기록을 볼 수 없어요. 전체 기록(순위)에는 그대로 표시돼요.</p>
+      <div class="row" style="margin-bottom:0;">
+        <button class="primary" data-act="public">공개로 바꾸기</button>
+        <button data-act="relock">이 기기에서 잠그기</button>
+      </div>
+      <p class="status" style="margin:8px 0 0;"></p>`;
+  } else {
+    panel.innerHTML = `
+      <p class="eyebrow">PRIVACY</p>
+      <p style="margin:0 0 4px; font-weight:500;">기록 비공개로 바꾸기</p>
+      <p class="muted" style="margin:0 0 12px;">비공개로 바꾸면 다른 사람은 이 프로필의 주요 리프트와 기록을 볼 수 없어요. 다시 열 때 쓸 PIN 4자리를 정해주세요.</p>
+      <div class="row" style="margin-bottom:0;">
+        <input type="password" inputmode="numeric" maxlength="4" placeholder="PIN 4자리" style="width:120px; text-align:center; letter-spacing:0.3em;" />
+        <button class="primary" data-act="private">비공개로 바꾸기</button>
+      </div>
+      <p class="status" style="margin:8px 0 0;"></p>`;
+  }
+  const status = panel.querySelector('.status');
+  const save = async (payload)=>{
+    const { error } = await sb.from('profile_settings').upsert({ name, ...payload }, { onConflict: 'name' });
+    if(error){ status.className = 'status err'; status.textContent = '저장에 실패했어요: ' + error.message; return false; }
+    return true;
+  };
+  panel.querySelectorAll('button[data-act]').forEach(b=>{
+    b.onclick = async ()=>{
+      const act = b.dataset.act;
+      if(act === 'private'){
+        const pin = panel.querySelector('input').value.trim();
+        if(!/^\d{4}$/.test(pin)){ status.className = 'status err'; status.textContent = 'PIN은 숫자 4자리로 입력해주세요.'; return; }
+        b.disabled = true;
+        const ok = await save({ is_private: true, pin });
+        b.disabled = false;
+        if(ok){ setProfileUnlocked(name, true); showProfileDetail(name); }
+      } else if(act === 'public'){
+        if(!confirm('공개로 바꿀까요? 누구나 이 프로필을 볼 수 있게 돼요.')) return;
+        b.disabled = true;
+        const ok = await save({ is_private: false });
+        b.disabled = false;
+        if(ok) showProfileDetail(name);
+      } else if(act === 'relock'){
+        setProfileUnlocked(name, false);
+        showProfileDetail(name);
+      }
+    };
+  });
+  return panel;
+}
 
 async function showProfileDetail(name){
   const el = document.getElementById('profile-detail');
   fadeSwap(el, document.getElementById('profile-list'), document.getElementById('profile-item-detail'));
   el.innerHTML = '<p class="muted">불러오고 있어요...</p>';
+
+  const setting = await getProfileSetting(name);
+  profileCurrentSetting = setting;
+  if(!canViewProfile(name, setting)){ renderLockedProfile(el, name, setting); return; }
 
   const { data, error } = await sb.from('records').select('*').eq('name', name).order('date', { ascending: true });
   if(error){ el.innerHTML = `<p class="status err">${error.message}</p>`; return; }
@@ -1523,9 +1664,28 @@ function renderProfileBody(unit){
       <option value="lb" ${unit==='lb'?'selected':''}>lb</option>
       <option value="kg" ${unit==='kg'?'selected':''}>kg</option>
     </select>`;
+  const isPrivate = !!(profileCurrentSetting && profileCurrentSetting.is_private);
+  const privacyBtn = document.createElement('button');
+  privacyBtn.title = isPrivate ? '비공개 프로필' : '공개 프로필';
+  privacyBtn.setAttribute('aria-label', privacyBtn.title);
+  privacyBtn.style.cssText = `${ICON_BTN_STYLE} width:36px; height:36px;`;
+  privacyBtn.innerHTML = isPrivate ? LOCK_ICON_SVG : UNLOCK_ICON_SVG;
+  unitWrap.style.cssText = 'display:flex; align-items:center; gap:8px;';
+  unitWrap.insertBefore(privacyBtn, unitWrap.firstChild);
+  if(isPrivate){
+    const lockMark = document.createElement('span');
+    lockMark.className = 'tag';
+    lockMark.style.cssText = 'background:var(--surface-1); color:var(--text-secondary); border:1px solid var(--border); margin-left:8px; vertical-align:middle;';
+    lockMark.textContent = '비공개';
+    title.appendChild(lockMark);
+  }
   titleRow.appendChild(title);
   titleRow.appendChild(unitWrap);
   el.appendChild(titleRow);
+
+  const privacyPanel = buildPrivacyPanel(name, profileCurrentSetting);
+  el.appendChild(privacyPanel);
+  privacyBtn.onclick = ()=> revealToggle(privacyPanel, privacyPanel.classList.contains('hidden'));
 
   document.getElementById('profile-unit-select').onchange = (e)=>{
     setPreferredUnit(e.target.value);
