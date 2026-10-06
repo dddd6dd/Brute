@@ -1672,45 +1672,71 @@ function renderProfileBody(unit){
     byItem[r.item_name].push(r);
   });
 
-  Object.entries(byItem).forEach(([itemName, records], i)=>{
-    const section = document.createElement('div');
-    section.className = 'card';
-    section.dataset.itemName = itemName.toLowerCase();
-    section.style.cursor = 'pointer';
+  // 항목을 section별로 묶어서 보여준다 (섹션은 그 항목의 가장 최근 기록 기준).
+  const bySection = {};
+  const sectionOrder = [];
+  Object.entries(byItem).forEach(([itemName, records])=>{
+    const sec = records[records.length - 1].section || '기타';
+    if(!bySection[sec]){ bySection[sec] = []; sectionOrder.push(sec); }
+    bySection[sec].push([itemName, records]);
+  });
 
-    const header = document.createElement('div');
-    header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px;';
-    header.innerHTML = `<span class="item-name">${itemName}</span>
-      <span style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
-        <span class="muted">${records.length}회 기록</span>
-        <span class="muted" style="display:flex;">${CHEVRON_ICON_SVG}</span>
-      </span>`;
-    section.appendChild(header);
+  sectionOrder.forEach((sectionName, sIdx)=>{
+    const sectionGroup = document.createElement('div');
+    sectionGroup.className = 'profile-section-group';
+    sectionGroup.style.marginBottom = '20px';
 
-    const isWeightType = records.some(r => r.type === 'weight');
-    const numericRecords = records.filter(r => !r.skipped && (r.type === 'weight' || r.type === 'reps'));
-    const isNumeric = numericRecords.length > 0;
-    section.onclick = ()=> showProfileItemDetail(profileCurrentName, itemName, records, isWeightType, isNumeric);
+    const sEyebrow = document.createElement('p');
+    sEyebrow.className = 'eyebrow';
+    sEyebrow.textContent = `SECTION ${String(sIdx + 1).padStart(2, '0')}`;
+    sectionGroup.appendChild(sEyebrow);
+    const sTitle = document.createElement('h3');
+    sTitle.style.cssText = 'font-size:17px; font-weight:500; margin:0 0 10px;';
+    sTitle.textContent = sectionName;
+    sectionGroup.appendChild(sTitle);
 
-    const recentList = document.createElement('div');
-    recentList.style.marginBottom = '10px';
-    const recent = records.slice().reverse().slice(0, 3);
-    recent.forEach(r=>{
-      const line = document.createElement('div');
-      line.style.cssText = 'font-size:15px; margin-bottom:4px;';
-      if(r.skipped){
-        line.style.color = 'var(--text-muted)';
-        line.innerHTML = `<span class="muted">${r.date}</span> — 생략${r.scale_detail ? ' ('+r.scale_detail.replace('생략: ','')+')' : ''}`;
-      } else {
-        const detailTag = r.scaled ? `<div style="margin-top:4px;"><span class="tag scaled">※${r.scale_detail ? ' '+r.scale_detail : ''}</span></div>` : '';
-        const displayValue = r.type === 'weight' ? formatWeight(parseFloat(r.value) || 0, unit) : r.value;
-        line.innerHTML = `<span class="muted">${r.date}</span> — <strong style="font-weight:500;">${displayValue}</strong>${detailTag}`;
-      }
-      recentList.appendChild(line);
+    bySection[sectionName].forEach(([itemName, records])=>{
+      const itemCard = document.createElement('div');
+      itemCard.className = 'card';
+      itemCard.style.cssText = 'margin-bottom:10px; cursor:pointer;';
+      itemCard.dataset.itemName = itemName.toLowerCase();
+
+      const header = document.createElement('div');
+      header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px;';
+      header.innerHTML = `<span class="item-name">${itemName}</span>
+        <span style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+          <span class="muted">${records.length}회 기록</span>
+          <span class="muted" style="display:flex;">${CHEVRON_ICON_SVG}</span>
+        </span>`;
+      itemCard.appendChild(header);
+
+      const isWeightType = records.some(r => r.type === 'weight');
+      const numericRecords = records.filter(r => !r.skipped && (r.type === 'weight' || r.type === 'reps'));
+      const isNumeric = numericRecords.length > 0;
+      itemCard.onclick = ()=> showProfileItemDetail(profileCurrentName, itemName, records, isWeightType, isNumeric);
+
+      const recentList = document.createElement('div');
+      recentList.style.marginBottom = '10px';
+      const recent = records.slice().reverse().slice(0, 3);
+      recent.forEach(r=>{
+        const line = document.createElement('div');
+        line.style.cssText = 'font-size:15px; margin-bottom:4px;';
+        if(r.skipped){
+          line.style.color = 'var(--text-muted)';
+          line.innerHTML = `<span class="muted">${r.date}</span> — 생략${r.scale_detail ? ' ('+r.scale_detail.replace('생략: ','')+')' : ''}`;
+        } else {
+          const detailTag = r.scaled ? `<div style="margin-top:4px;"><span class="tag scaled">※${r.scale_detail ? ' '+r.scale_detail : ''}</span></div>` : '';
+          const displayValue = r.type === 'weight' ? formatWeight(parseFloat(r.value) || 0, unit) : r.value;
+          line.innerHTML = `<span class="muted">${r.date}</span> — <strong style="font-weight:500;">${displayValue}</strong>${detailTag}`;
+        }
+        recentList.appendChild(line);
+      });
+      itemCard.appendChild(recentList);
+
+      sectionGroup.appendChild(itemCard);
     });
-    section.appendChild(recentList);
 
-    itemsContainer.appendChild(section);
+    itemsContainer.appendChild(sectionGroup);
   });
 }
 
@@ -2352,8 +2378,9 @@ function buildDateLookupBox(records, unit){
         if(it.type === 'barbell_conditioning' && it.movements){
           it.movements.forEach(m=> itemOrder.push({ key: `${it.name} - ${m}`, section: it.section }));
         } else if((it.type === 'amrap_by_round' || it.type === 'weight_by_round' || it.type === 'emom_by_round') && it.rounds){
-          for(let r = 1; r <= parseInt(it.rounds); r++){
-            itemOrder.push({ key: `${it.name} - ${r}R`, section: it.section });
+          const totalRounds = parseInt(it.rounds);
+          for(let r = 1; r <= totalRounds; r++){
+            itemOrder.push({ key: `${it.name} - ${r}R`, section: it.section, roundGroup: it.name, isLastRound: r === totalRounds });
           }
         } else {
           itemOrder.push({ key: it.name, section: it.section });
@@ -2399,12 +2426,14 @@ function buildDateLookupBox(records, unit){
           const line = document.createElement('div');
           line.style.cssText = 'font-size:15px; margin:0 0 4px; display:flex; justify-content:space-between; align-items:flex-start; gap:8px;';
 
+          const suppressTag = io.roundGroup && !io.isLastRound;
+
           const textSpan = document.createElement('span');
           if(r.skipped){
             textSpan.style.color = 'var(--text-muted)';
-            textSpan.innerHTML = `${r.item_name} — 생략${r.scale_detail ? ' ('+r.scale_detail.replace('생략: ','')+')' : ''}`;
+            textSpan.innerHTML = `${r.item_name} — 생략${(!suppressTag && r.scale_detail) ? ' ('+r.scale_detail.replace('생략: ','')+')' : ''}`;
           } else {
-            const detailTag = r.scaled ? `<div style="margin-top:4px;"><span class="tag scaled">※${r.scale_detail ? ' '+r.scale_detail : ''}</span></div>` : '';
+            const detailTag = (r.scaled && !suppressTag) ? `<div style="margin-top:4px;"><span class="tag scaled">※${r.scale_detail ? ' '+r.scale_detail : ''}</span></div>` : '';
             const displayValue = r.type === 'weight' ? formatWeight(parseFloat(r.value) || 0, unit) : r.value;
             textSpan.innerHTML = `${r.item_name} — <strong style="font-weight:500;">${displayValue}</strong>${detailTag}`;
           }
@@ -2460,10 +2489,14 @@ function buildDateLookupBox(records, unit){
 function filterProfileItemSections(query){
   const container = document.getElementById('profile-items-container');
   if(!container) return;
-  const sections = container.querySelectorAll('[data-item-name]');
-  sections.forEach(sec=>{
-    const match = !query || sec.dataset.itemName.includes(query);
-    sec.style.display = match ? '' : 'none';
+  const items = container.querySelectorAll('[data-item-name]');
+  items.forEach(item=>{
+    const match = !query || item.dataset.itemName.includes(query);
+    item.style.display = match ? '' : 'none';
+  });
+  container.querySelectorAll('.profile-section-group').forEach(group=>{
+    const hasVisibleItem = !!group.querySelector('[data-item-name]:not([style*="display: none"])');
+    group.style.display = hasVisibleItem ? '' : 'none';
   });
 }
 
