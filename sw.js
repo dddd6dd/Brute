@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jogym-shell-v1';
+const CACHE_NAME = 'jogym-shell-v5';
 const SHELL_ASSETS = ['./', './index.html', './icon-192.png', './icon-512.png', './manifest.json'];
 
 self.addEventListener('install', (event) => {

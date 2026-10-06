@@ -281,11 +281,25 @@
 <script>
 const SUPABASE_URL = "https://yijftuyaaygmnsheoere.supabase.co";
 const SUPABASE_KEY = "sb_publishable_VwrPo65lyQPCXh6J4Pbhdg_HjlxqKT2";
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// 비공개 프로필/관리자 세션 토큰을 모든 DB 요청 헤더에 실어 보내요. 권한 판단은 Supabase RLS가 해요.
+function getBruteTokens(){
+  const list = Object.values(getProfileTokens());
+  const a = sessionStorage.getItem('bruteAdminToken');
+  if(a) list.push(a);
+  return list;
+}
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  global: {
+    fetch: (url, opts = {})=>{
+      const headers = new Headers(opts.headers || {});
+      const tokens = getBruteTokens();
+      if(tokens.length) headers.set('x-brute-tokens', tokens.join(','));
+      return fetch(url, { ...opts, headers });
+    }
+  }
+});
 
-// NOTE: this is a lightweight client-side gate, not real auth security.
-// Good enough for a small team tool; change the password below.
-const ADMIN_PASSWORD = "male123";
+// 관리자 비밀번호는 코드에 없어요. Supabase의 admin_login 함수가 암호화된 값과 비교해요.
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
@@ -348,6 +362,47 @@ const CALCULATOR_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fil
 const LOCK_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 const UNLOCK_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/></svg>';
 const CLOSE_ICON_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+
+
+// ---------- 프로그램 문구 표시 ----------
+// "1.Warm Up", "A) Warm Up" 같은 앞 번호를 떼고 보여줘요. 섹션과 소분류가 같은 이름이면 소분류는 숨겨요.
+function stripLabelPrefix(s){
+  return String(s || '').replace(/^\s*(?:\d+|[A-Za-z])\s*[.)]\s*/, '').trim();
+}
+function isSameLabel(a, b){
+  const norm = (s)=> stripLabelPrefix(s).toLowerCase().replace(/\s+/g, '');
+  return norm(a) === norm(b);
+}
+// 기준 설명을 동작마다 한 줄씩 보여줘요. 줄바꿈이 있으면 그대로 쓰고,
+// 없으면 괄호 밖의 ", " / ". " / " + " / " → " 와 앞머리 "2 Sets:" 같은 라벨에서 줄을 나눠요.
+function splitPrescribedLines(text){
+  const src = String(text || '').replace(/\r\n?/g, '\n').replace(/\\n/g, '\n').trim();
+  if(!src) return [];
+  if(src.includes('\n')) return src.split(/\n/).map(s=>s.trim());
+  const lines = [];
+  let rest = src;
+  const head = rest.match(/^((?:\d+\s*)?(?:sets?|rounds?|each for time|for time)\s*:)\s*/i);
+  if(head){ lines.push(head[1]); rest = rest.slice(head[0].length); }
+  let buf = '', depth = 0;
+  for(let i = 0; i < rest.length; i++){
+    const c = rest[i];
+    if(c === '(') depth++;
+    if(c === ')') depth = Math.max(0, depth - 1);
+    if(depth === 0){
+      if((c === ',' || c === '.') && rest[i+1] === ' '){ if(c === '.') buf += ''; lines.push(buf); buf = ''; i++; continue; }
+      if(c === '+' && rest[i-1] === ' ' && rest[i+1] === ' '){ lines.push(buf); buf = ''; i++; continue; }
+      if(c === '→'){ lines.push(buf); buf = '→ '; if(rest[i+1] === ' ') i++; continue; }
+    }
+    buf += c;
+  }
+  lines.push(buf);
+  return lines.map(s=>s.trim().replace(/\.$/, '')).filter(Boolean);
+}
+function formatPrescribed(text){
+  return splitPrescribedLines(text)
+    .map(l => l ? `<div>${escapeHtml(l)}</div>` : '<div style="height:0.6em;"></div>')
+    .join('');
+}
 
 // 항목 편집기에서 쓰는 기록 방식 목록. validateProgramItems / parse-wod.ts와 같은 9개 타입을 써야 함.
 const ITEM_TYPES = [
@@ -492,16 +547,25 @@ document.getElementById('tab-board').onclick = ()=> switchTab('board');
 document.getElementById('tab-profile').onclick = ()=> switchTab('profile');
 document.getElementById('tab-admin').onclick = ()=> switchTab('admin');
 
-document.getElementById('admin-unlock-btn').onclick = ()=>{
-  const pw = document.getElementById('admin-pw').value;
-  if(pw === ADMIN_PASSWORD){
-    fadeSwap(document.getElementById('admin-panel'), document.getElementById('admin-gate'));
-    document.getElementById('admin-date').value = todayStr();
-    renderAdminProgramList();
-  } else {
-    alert('비밀번호가 올바르지 않아요');
+async function unlockAdmin(){
+  const btn = document.getElementById('admin-unlock-btn');
+  const pwEl = document.getElementById('admin-pw');
+  btn.disabled = true;
+  const { data, error } = await sb.rpc('admin_login', { p_password: pwEl.value });
+  btn.disabled = false;
+  pwEl.value = '';
+  if(error){ alert('확인에 실패했어요: ' + error.message); return; }
+  if(!data || !data.ok){
+    alert(data && data.error === 'LOCKED' ? '비밀번호를 여러 번 틀려서 잠시 잠겼어요. 나중에 다시 시도해주세요.' : '비밀번호가 올바르지 않아요');
+    return;
   }
-};
+  sessionStorage.setItem('bruteAdminToken', data.token);
+  fadeSwap(document.getElementById('admin-panel'), document.getElementById('admin-gate'));
+  document.getElementById('admin-date').value = todayStr();
+  renderAdminProgramList();
+}
+document.getElementById('admin-unlock-btn').onclick = unlockAdmin;
+document.getElementById('admin-pw').onkeydown = (e)=>{ if(e.key === 'Enter') unlockAdmin(); };
 
 function setInputMode(mode){
   const aiEl = document.getElementById('mode-ai');
@@ -927,7 +991,7 @@ async function renderLogForm(date){
 
     const sectionTitle = document.createElement('h3');
     sectionTitle.style.cssText = 'font-size:18px; font-weight:500; margin:0 0 12px;';
-    sectionTitle.textContent = sectionName;
+    sectionTitle.textContent = stripLabelPrefix(sectionName);
     sectionBox.appendChild(sectionTitle);
 
     const bySub = {};
@@ -938,11 +1002,11 @@ async function renderLogForm(date){
     });
 
     Object.entries(bySub).forEach(([subName, subItems])=>{
-      if(subName){
+      if(subName && !isSameLabel(subName, sectionName)){
         const subTitle = document.createElement('p');
         subTitle.className = 'muted';
         subTitle.style.cssText = 'font-weight:500; margin:0 0 8px; font-size:15px;';
-        subTitle.textContent = subName;
+        subTitle.textContent = stripLabelPrefix(subName);
         sectionBox.appendChild(subTitle);
       }
 
@@ -986,7 +1050,7 @@ async function renderLogForm(date){
           <div style="margin-bottom:8px;">
             <span class="item-name">${it.name}</span>
           </div>
-          <p class="muted" style="margin:0 0 8px;">기준: ${it.prescribed}</p>
+          <div class="muted" style="margin:0 0 10px; line-height:1.55;">${formatPrescribed(it.prescribed)}</div>
           <div class="row" style="margin-bottom:8px;">
             <label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="skip-check" style="width:auto; height:auto;" />오늘 생략</label>
           </div>
@@ -1034,7 +1098,7 @@ async function renderLogForm(date){
       <div style="margin-bottom:8px;">
         <span class="item-name">${it.name}</span>
       </div>
-      <p class="muted" style="margin:0 0 8px;">기준: ${it.prescribed}</p>
+      <div class="muted" style="margin:0 0 10px; line-height:1.55;">${formatPrescribed(it.prescribed)}</div>
       <div class="row" style="margin-bottom:8px;">
         <label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="skip-check" style="width:auto; height:auto;" />오늘 생략</label>
       </div>
@@ -1144,7 +1208,7 @@ async function renderLogForm(date){
       <div style="margin-bottom:8px;">
         <span class="item-name">${it.name}</span>
       </div>
-      <p class="muted" style="margin:0 0 8px;">기준: ${it.prescribed}</p>
+      <div class="muted" style="margin:0 0 10px; line-height:1.55;">${formatPrescribed(it.prescribed)}</div>
       <div class="row" style="margin-bottom:8px;">
         <label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="skip-check" style="width:auto; height:auto;" />오늘 생략</label>
       </div>
@@ -1464,9 +1528,9 @@ async function renderProfileList(){
   el.innerHTML = '<p class="muted">불러오고 있어요...</p>';
   const { data, error } = await sb.from('records').select('name');
   if(error){ el.innerHTML = `<p class="status err">${error.message}</p>`; return; }
-  const names = [...new Set((data||[]).map(r=>r.name))].sort();
-  if(names.length === 0){ el.innerHTML = '<p class="muted">아직 기록이 없어요.</p>'; return; }
   const privateNames = await getPrivateProfileNames();
+  const names = [...new Set([...(data||[]).map(r=>r.name), ...privateNames])].sort();
+  if(names.length === 0){ el.innerHTML = '<p class="muted">아직 기록이 없어요.</p>'; return; }
   el.innerHTML = '<p class="muted" style="margin-bottom:12px;">이름을 눌러 개인 기록을 확인해보세요.</p>';
   const wrap = document.createElement('div');
   names.forEach(n=>{
@@ -1493,21 +1557,22 @@ let profileCurrentKeyLifts = [];
 let profileCurrentSetting = null;
 
 // ---------- 프로필 공개/비공개 ----------
-// profile_settings 테이블(name, is_private, pin). 관리자 비밀번호처럼 팀 내부용 가벼운 잠금이에요.
-function getUnlockedProfiles(){
-  try { return JSON.parse(localStorage.getItem('unlockedProfiles') || '[]'); } catch(e){ return []; }
+// PIN 확인과 권한 판단은 전부 Supabase(DB 함수 + RLS)에서 해요. 브라우저는 PIN을 읽을 수 없고,
+// 확인에 성공하면 받은 세션 토큰만 저장해서 요청 헤더(x-brute-tokens)에 실어 보내요.
+function getProfileTokens(){
+  try { return JSON.parse(localStorage.getItem('bruteProfileTokens') || '{}'); } catch(e){ return {}; }
 }
-function setProfileUnlocked(name, on){
-  const s = new Set(getUnlockedProfiles());
-  if(on) s.add(name); else s.delete(name);
-  localStorage.setItem('unlockedProfiles', JSON.stringify([...s]));
+function setProfileToken(name, token){
+  const m = getProfileTokens();
+  if(token) m[name] = token; else delete m[name];
+  localStorage.setItem('bruteProfileTokens', JSON.stringify(m));
 }
 function isAdminUnlocked(){
   const p = document.getElementById('admin-panel');
-  return !!p && !p.classList.contains('hidden');
+  return !!sessionStorage.getItem('bruteAdminToken') && !!p && !p.classList.contains('hidden');
 }
 async function getProfileSetting(name){
-  const { data, error } = await sb.from('profile_settings').select('*').eq('name', name).maybeSingle();
+  const { data, error } = await sb.from('profile_settings').select('name, is_private').eq('name', name).maybeSingle();
   if(error) return null;
   return data;
 }
@@ -1516,12 +1581,22 @@ async function getPrivateProfileNames(){
   if(error) return new Set();
   return new Set((data||[]).map(r=>r.name));
 }
-function canViewProfile(name, setting){
+async function canViewProfile(name, setting){
   if(!setting || !setting.is_private) return true;
-  return isAdminUnlocked() || getUnlockedProfiles().includes(name);
+  const { data, error } = await sb.rpc('can_access', { p_name: name });
+  return !error && data === true;
+}
+function pinErrorMessage(res){
+  if(!res) return '확인에 실패했어요. 잠시 뒤에 다시 시도해주세요.';
+  if(res.error === 'LOCKED') return 'PIN을 여러 번 틀려서 잠시 잠겼어요. 나중에 다시 시도해주세요.';
+  if(res.error === 'WRONG_PIN') return `PIN이 맞지 않아요. (남은 기회 ${res.left}번)`;
+  if(res.error === 'BAD_PIN') return 'PIN은 숫자 4자리로 입력해주세요.';
+  if(res.error === 'BAD_NAME') return '이 이름은 비공개로 설정할 수 없어요.';
+  if(res.error === 'NO_ACCESS') return '권한이 없어요. PIN으로 먼저 열어주세요.';
+  return '확인에 실패했어요.';
 }
 
-function renderLockedProfile(el, name, setting){
+function renderLockedProfile(el, name){
   el.innerHTML = '';
   const back = document.createElement('span');
   back.className = 'back-link';
@@ -1538,7 +1613,7 @@ function renderLockedProfile(el, name, setting){
     <h2 style="font-size:20px; font-weight:500; margin:0;"></h2>
     <p class="muted" style="margin:0 0 14px;">비공개 프로필이에요. 본인이라면 PIN을 입력해주세요.</p>
     <div class="row" style="justify-content:center; margin-bottom:0;">
-      <input type="password" inputmode="numeric" maxlength="4" placeholder="PIN 4자리" style="width:120px; text-align:center; letter-spacing:0.3em;" />
+      <input type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="PIN 4자리" style="width:120px; text-align:center; letter-spacing:0.3em;" />
       <button class="primary">열기</button>
     </div>
     <p class="status err" style="margin:8px 0 0; min-height:1.6em;"></p>`;
@@ -1546,15 +1621,19 @@ function renderLockedProfile(el, name, setting){
   const input = box.querySelector('input');
   const btn = box.querySelector('button');
   const status = box.querySelector('.status');
-  const tryUnlock = ()=>{
-    if(input.value.trim() === String(setting.pin || '')){
-      setProfileUnlocked(name, true);
+  const tryUnlock = async ()=>{
+    btn.disabled = true;
+    const { data, error } = await sb.rpc('profile_unlock', { p_name: name, p_pin: input.value.trim() });
+    btn.disabled = false;
+    if(!error && data && data.ok){
+      setProfileToken(name, data.token);
       showProfileDetail(name);
-    } else {
-      status.textContent = 'PIN이 맞지 않아요.';
-      input.value = '';
-      input.focus();
+      return;
     }
+    if(data && data.error === 'NO_PIN'){ showProfileDetail(name); return; }
+    status.textContent = error ? '확인에 실패했어요: ' + error.message : pinErrorMessage(data);
+    input.value = '';
+    input.focus();
   };
   btn.onclick = tryUnlock;
   input.onkeydown = (e)=>{ if(e.key === 'Enter') tryUnlock(); };
@@ -1570,47 +1649,57 @@ function buildPrivacyPanel(name, setting){
     panel.innerHTML = `
       <p class="eyebrow">PRIVACY</p>
       <p style="margin:0 0 4px; font-weight:500;">지금 비공개 상태예요</p>
-      <p class="muted" style="margin:0 0 12px;">다른 사람은 PIN 없이 이 프로필의 기록을 볼 수 없어요. 전체 기록(순위)에는 그대로 표시돼요.</p>
+      <p class="muted" style="margin:0 0 12px;">PIN이 없으면 이 프로필, 주요 리프트, 전체 기록(순위)에서 기록을 볼 수 없어요.</p>
       <div class="row" style="margin-bottom:0;">
         <button class="primary" data-act="public">공개로 바꾸기</button>
         <button data-act="relock">이 기기에서 잠그기</button>
+        ${isAdminUnlocked() ? '<button class="danger" data-act="reset">PIN 초기화</button>' : ''}
       </div>
       <p class="status" style="margin:8px 0 0;"></p>`;
   } else {
     panel.innerHTML = `
       <p class="eyebrow">PRIVACY</p>
       <p style="margin:0 0 4px; font-weight:500;">기록 비공개로 바꾸기</p>
-      <p class="muted" style="margin:0 0 12px;">비공개로 바꾸면 다른 사람은 이 프로필의 주요 리프트와 기록을 볼 수 없어요. 다시 열 때 쓸 PIN 4자리를 정해주세요.</p>
+      <p class="muted" style="margin:0 0 12px;">비공개로 바꾸면 PIN이 없는 사람은 이 프로필, 주요 리프트, 전체 기록(순위)에서 기록을 볼 수 없어요. PIN 4자리를 정해주세요. 전에 정한 PIN이 있다면 그 PIN을 입력해주세요. 은행이나 휴대폰 비밀번호와 같은 숫자는 피해주세요.</p>
       <div class="row" style="margin-bottom:0;">
-        <input type="password" inputmode="numeric" maxlength="4" placeholder="PIN 4자리" style="width:120px; text-align:center; letter-spacing:0.3em;" />
+        <input type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="PIN 4자리" style="width:120px; text-align:center; letter-spacing:0.3em;" />
         <button class="primary" data-act="private">비공개로 바꾸기</button>
       </div>
       <p class="status" style="margin:8px 0 0;"></p>`;
   }
   const status = panel.querySelector('.status');
-  const save = async (payload)=>{
-    const { error } = await sb.from('profile_settings').upsert({ name, ...payload }, { onConflict: 'name' });
-    if(error){ status.className = 'status err'; status.textContent = '저장에 실패했어요: ' + error.message; return false; }
-    return true;
-  };
+  const fail = (msg)=>{ status.className = 'status err'; status.textContent = msg; };
   panel.querySelectorAll('button[data-act]').forEach(b=>{
     b.onclick = async ()=>{
       const act = b.dataset.act;
       if(act === 'private'){
         const pin = panel.querySelector('input').value.trim();
-        if(!/^\d{4}$/.test(pin)){ status.className = 'status err'; status.textContent = 'PIN은 숫자 4자리로 입력해주세요.'; return; }
+        if(!/^\d{4}$/.test(pin)){ fail('PIN은 숫자 4자리로 입력해주세요.'); return; }
         b.disabled = true;
-        const ok = await save({ is_private: true, pin });
+        const { data, error } = await sb.rpc('profile_set_private', { p_name: name, p_pin: pin });
         b.disabled = false;
-        if(ok){ setProfileUnlocked(name, true); showProfileDetail(name); }
+        if(error){ fail('저장에 실패했어요: ' + error.message); return; }
+        if(!data || !data.ok){ fail(pinErrorMessage(data)); return; }
+        setProfileToken(name, data.token);
+        showProfileDetail(name);
       } else if(act === 'public'){
         if(!confirm('공개로 바꿀까요? 누구나 이 프로필을 볼 수 있게 돼요.')) return;
         b.disabled = true;
-        const ok = await save({ is_private: false });
+        const { data, error } = await sb.rpc('profile_set_public', { p_name: name });
         b.disabled = false;
-        if(ok) showProfileDetail(name);
+        if(error){ fail('저장에 실패했어요: ' + error.message); return; }
+        if(!data || !data.ok){ fail(pinErrorMessage(data)); return; }
+        showProfileDetail(name);
       } else if(act === 'relock'){
-        setProfileUnlocked(name, false);
+        const token = getProfileTokens()[name];
+        if(token) await sb.rpc('brute_logout', { p_token: token });
+        setProfileToken(name, null);
+        showProfileDetail(name);
+      } else if(act === 'reset'){
+        if(!confirm(`${name}님의 PIN을 초기화하고 공개로 바꿀까요?`)) return;
+        const { data, error } = await sb.rpc('admin_reset_profile', { p_name: name });
+        if(error){ fail('초기화에 실패했어요: ' + error.message); return; }
+        if(!data || !data.ok){ fail(pinErrorMessage(data)); return; }
         showProfileDetail(name);
       }
     };
@@ -1625,7 +1714,7 @@ async function showProfileDetail(name){
 
   const setting = await getProfileSetting(name);
   profileCurrentSetting = setting;
-  if(!canViewProfile(name, setting)){ renderLockedProfile(el, name, setting); return; }
+  if(!(await canViewProfile(name, setting))){ renderLockedProfile(el, name); return; }
 
   const { data, error } = await sb.from('records').select('*').eq('name', name).order('date', { ascending: true });
   if(error){ el.innerHTML = `<p class="status err">${error.message}</p>`; return; }
