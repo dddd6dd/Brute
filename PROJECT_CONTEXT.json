@@ -1,98 +1,125 @@
 {
-  "project_name": "수컷 프로그램 팀 기록 트래커 (jogym-crossfit)",
-  "description": "크로스핏 박스 '조짐(jogym)'에서 매일 게시되는 훈련 프로그램(WOD)을 팀원들이 기록하고, 서로 순위를 보고, 개인 이력을 관리하는 웹앱",
-  "live_url": "https://jogym-crossfit.netlify.app/",
+  "project_name": "JOGYM NOTE / I AM BRUTE",
+  "description": "조짐 프로그램·운동 기록·Progress·선수 프로필을 관리하는 정적 Vanilla JavaScript 앱",
+  "context_updated": "2026-10-07",
+  "code_baseline": "b109ee3b897bfebb0b39244458fd5a34d42bc6c9",
+  "live_url": "https://dddd6dd.github.io/jogymnote/index.html",
   "deployment": {
-    "frontend": "단일 HTML 파일(index.html)을 Netlify에 정적 배포. 빌드 과정 없음, 파일 하나가 곧 사이트 전체.",
-    "backend": "Supabase 프로젝트 하나 (Postgres DB + Edge Functions).",
-    "ai_parsing": "Supabase Edge Function('parse-wod')이 Gemini API를 프록시. API 키는 Supabase Secrets(GEMINI_API_KEY)에 저장, 브라우저에는 노출 안 됨."
+    "frontend": "기존 GitHub Pages 저장소 루트에서 정적 파일 제공. 빌드 과정 없음. main 원격 및 Pages 설정은 이 작업에서 변경하지 않음.",
+    "backend": "Supabase JS client CDN, Postgres/RPC/RLS 및 parse-wod Edge Function. 서버 구현/schema/policy는 저장소에 없으며 변경·검증하지 않음.",
+    "publish": "index.html, css/, js/, sw.js, manifest.json, icons를 함께 배포. 파일 하나만 교체해서는 안 됨.",
+    "legacy_netlify": "이전 문서의 Netlify URL은 현재 배포 대상으로 확인하지 않았으므로 기준으로 사용하지 않음."
   },
-  "tech_stack": {
-    "frontend": "순수 HTML + Vanilla JS (프레임워크 없음), Chart.js(CDN)로 그래프",
-    "backend": "Supabase JS client(CDN import), Supabase Postgres, Supabase Edge Functions(Deno)",
-    "no_build_step": true,
-    "no_npm": true
+  "project_structure": {
+    "index.html": "기존 정적 HTML 및 순서가 있는 classic script 목록",
+    "css/style.css": "원본 style 블록 그대로",
+    "js": {
+      "config.js": "기존 Supabase URL 및 publishable key",
+      "utils.js": "단위 변환, 시간/날짜 표시, HTML escaping, 아이콘, 애니메이션, 캘린더",
+      "programs.js": "프로그램 문구 표시 및 동작 영상 조회/관리",
+      "charts.js": "Chart.js 테마 공통 선 그래프",
+      "records.js": "프로그램 조회, 카드 생성, autosave, 복원, 수정/삭제, 반복 세트/파트/I GO U GO/Personal",
+      "pace.js": "paceRates/paceStats/pacePattern/paceCoach/paceChanged/paceTol/paceDetailHtml 및 suggestTargetPace",
+      "progress.js": "renderProgress, PR/요약/Pace 세션 생성·baseline 비교·렌더링/리미터/리프팅 추세/같은 처방 비교",
+      "leaderboard.js": "renderBoard 및 함수 내부 renderLeaderboardFor (기존 탭 연결 그대로 보존)",
+      "profile.js": "선수 프로필, privacy/PIN RPC, 날짜/동작별 기록, key lift 이력",
+      "admin.js": "관리자 RPC 로그인, PIN 초기화, 프로그램 JSON/AI 파싱·편집·게시·삭제",
+      "weight-calculator.js": "바벨/원판 재고, DP 원판 계산, 시각화, 플로팅 계산기",
+      "supabase.js": "요청마다 x-brute-tokens 헤더를 추가하는 기존 fetch 및 sb client",
+      "app.js": "탭 전환, MutationObserver, 기존 이벤트 연결 및 초기 실행/PWA 등록"
+    },
+    "sw.js": "기존 network-first 동일 origin 캐시. 분리 파일 precache 및 캐시 버전 갱신.",
+    "tests": "node 기본 테스트, 원본 코드 이동 지도, 선택적 Playwright 비교 테스트",
+    "docs": "DEPENDENCIES.md, POTENTIAL_ISSUES.md, REFACTOR_REPORT.md"
+  },
+  "script_load_order": [
+    "js/config.js",
+    "js/utils.js",
+    "js/programs.js",
+    "js/charts.js",
+    "js/records.js",
+    "js/pace.js",
+    "js/progress.js",
+    "js/leaderboard.js",
+    "js/profile.js",
+    "js/admin.js",
+    "js/weight-calculator.js",
+    "js/supabase.js",
+    "js/app.js"
+  ],
+  "global_scope_contract": "ES modules/IIFE 래핑/async/defer 미사용. 기존 전역 lexical bindings 및 함수 이름 유지. app.js가 마지막에서 기존 실행 문장을 원래 순서대로 실행. supabase.js는 profile 토큰 함수 정의 뒤, app 초기 요청 앞에 로드.",
+  "supabase_connection": {
+    "url": "https://yijftuyaaygmnsheoere.supabase.co",
+    "key": "js/config.js의 기존 publishable key. service-role key 사용 안 함.",
+    "client": "js/supabase.js const sb",
+    "headers": "모든 DB 요청 시 localStorage bruteProfileTokens 값들과 sessionStorage bruteAdminToken을 읽어 x-brute-tokens에 쉼표로 결합. 없으면 헤더 추가 안 함.",
+    "rpc_calls": [
+      "admin_login",
+      "admin_reset_profile",
+      "brute_logout",
+      "can_access",
+      "profile_change_pin",
+      "profile_set_private",
+      "profile_set_public",
+      "profile_unlock"
+    ],
+    "ai_parsing": "admin.callParseFunction -> 직접 fetch(SUPABASE_URL/functions/v1/parse-wod), Authorization Bearer publishable key, {programText} payload 및 data.result 처리 그대로. API key는 frontend에 없음."
   },
   "auth_model": {
-    "type": "간단한 클라이언트 사이드 비밀번호 체크 (진짜 인증 아님)",
-    "admin_password": "관리자 탭 진입 시 하드코딩된 문자열과 비교 (코드 내 ADMIN_PASSWORD 상수)",
-    "user_identification": "사용자는 로그인 없이 매번 자기 이름을 텍스트로 입력해서 기록. 이름 오타/중복 관리 안 됨(주의 필요)."
+    "user_identification": "buildWhoBar 이름 선택/입력 -> bruteLogName; Supabase Auth 로그인으로 변경하지 않음.",
+    "admin": "admin_login({p_password}) 성공 token을 sessionStorage bruteAdminToken에 저장. gate/panel 기존 전환 유지. 새로고침 후 자동으로 panel을 여는 기능을 추가하지 않음.",
+    "profile_privacy": "profile_settings name/is_private만 조회. 비공개 접근은 can_access({p_name}) RPC. PIN은 profile_unlock({p_name,p_pin}) RPC; 성공 token만 저장. set_private/set_public/change_pin/logout/reset 기존 RPC 보존. 권한 결정은 DB/RLS이며 frontend PIN 검증으로 대체하지 않음."
   },
-  "app_tabs": [
-    {
-      "id": "log",
-      "label": "오늘 운동",
-      "purpose": "선택한 날짜에 게시된 프로그램 항목들을 보여주고, 사용자가 이름+기록을 입력해서 저장"
+  "storage_keys": {
+    "localStorage": {
+      "bruteLogName": "기록 사용자 이름",
+      "bruteProfileTokens": "이름 -> RPC 세션 token JSON 객체",
+      "bruteAutosaveSeen": "autosave 안내 표시 여부",
+      "weightUnit": "lb/kg, 기본 lb"
     },
-    {
-      "id": "board",
-      "label": "전체 기록",
-      "purpose": "특정 날짜의 모든 사람 기록을 항목별로 모아 순위(리더보드) 형태로 표시"
-    },
-    {
-      "id": "profile",
-      "label": "선수 프로필",
-      "purpose": "이름별 개인 페이지: 주요 리프트 요약, 무게 계산기(퍼센트/단계증량/플레이트), 날짜별 기록 보기, 동작별 전체 기록+그래프"
-    },
-    {
-      "id": "admin",
-      "label": "관리자",
-      "purpose": "비밀번호로 보호됨. 오늘 프로그램 텍스트를 붙여넣어 (1)Gemini AI 자동 파싱 또는 (2)이미 파싱된 JSON 직접 게시. 게시된 프로그램 목록 확인/삭제도 가능"
+    "sessionStorage": {
+      "bruteAdminToken": "관리자 RPC 세션 token"
     }
-  ],
-  "supabase_tables": {
-    "note": "실제 컬럼 타입은 Supabase 대시보드 Table Editor에서 확인 권장. 아래는 프론트엔드 코드(index.html)의 sb.from(...) 호출 패턴에서 유추한 내용.",
-    "programs": {
-      "purpose": "특정 날짜에 게시된 훈련 프로그램 원문과 파싱된 항목 배열을 저장. 날짜당 1행(upsert onConflict: 'date').",
-      "columns_inferred": {
-        "date": "text 또는 date. Primary/unique key로 사용됨 (onConflict: 'date').",
-        "raw_text": "text. 관리자가 붙여넣은 프로그램 원문 그대로.",
-        "items": "jsonb. 파싱된 항목 배열. 스키마는 아래 'program_item_schema' 참고."
-      }
-    },
-    "records": {
-      "purpose": "사용자가 특정 날짜, 특정 항목에 대해 입력한 실제 기록. 한 사람이 하루에 여러 항목을 저장하면 여러 행이 생김 (라운드별 항목은 항목당 여러 행으로 더 쪼개짐).",
-      "columns_inferred": {
-        "id": "PK (uuid 또는 auto increment로 추정). delete/update 시 .eq('id', ...)로 사용됨.",
-        "date": "text/date. 어느 프로그램(programs.date)에 대한 기록인지.",
-        "name": "text. 기록을 남긴 사람 이름 (로그인 없음, 자유 입력).",
-        "item_name": "text. 어떤 항목에 대한 기록인지. barbell_conditioning/*_by_round 타입은 '원래이름 - 동작명' 또는 '원래이름 - N R' 형태로 하위 항목마다 별도 행 저장.",
-        "section": "text. 리더보드/날짜별 조회 시 섹션별로 그룹핑하는 데 사용.",
-        "type": "text. 'weight' | 'reps' | 'for_time' | 'status' 중 하나 (program_item의 type과는 다름 - 실제 저장되는 값의 형태를 나타내는 더 단순화된 타입).",
-        "value": "text. 실제 기록값. weight 타입은 항상 kg으로 환산되어 저장됨(문자열). for_time은 'MM:SS' 형식.",
-        "scaled": "boolean. '세부기록(스케일링)' 체크박스 여부.",
-        "scale_detail": "text. 세부기록 메모 또는 생략 사유 텍스트.",
-        "skipped": "boolean. 그날 이 항목을 생략했는지 여부."
-      }
-    },
-    "key_lifts": {
-      "purpose": "선수 프로필의 '주요 리프트' 요약값. 사람+동작 조합당 최신값 1행만 유지 (upsert onConflict: 'name,lift_name').",
-      "columns_inferred": {
-        "name": "text. 선수 이름.",
-        "lift_name": "text. 리프트 이름(백스쿼트, 데드리프트 등 자유 입력 가능).",
-        "value_kg": "numeric. 항상 kg 기준으로 저장.",
-        "updated_at": "timestamp."
-      }
-    },
-    "key_lift_history": {
-      "purpose": "key_lifts의 변경 이력 전체 (그래프용). key_lifts.value_kg을 갱신할 때마다 이 테이블에도 새 행을 insert.",
-      "columns_inferred": {
-        "name": "text.",
-        "lift_name": "text.",
-        "value_kg": "numeric.",
-        "recorded_date": "date. 사용자가 직접 입력하는 '이 기록의 날짜'.",
-        "created_at": "timestamp (자동 생성 추정, order by에서 사용됨)."
-      }
-    }
+  },
+  "records_data": {
+    "note": "아래는 frontend 호출에서 확인한 사용 형태이며 실제 DB schema를 새로 정의한 것이 아님.",
+    "fields": [
+      "id",
+      "date",
+      "name",
+      "item_name",
+      "section",
+      "type",
+      "value",
+      "scaled",
+      "scale_detail",
+      "skipped"
+    ],
+    "types": [
+      "weight",
+      "for_time",
+      "reps",
+      "calories",
+      "distance",
+      "status"
+    ],
+    "weight": "value 문자열, 항상 kg. 0.45359237 kg/lb, 입력별 기존 반올림 유지.",
+    "detail": "일반 메모 또는 § + JSON.stringify(detail). spec/notes/rm/clock/target/hits/igug/ig/cals/machines/lim/cap/unfin/reps/Personal용 필드 모두 원본 그대로.",
+    "repeat_and_parts": "대표행과 - NR 라운드 행, · Total 대표행 등 기존 이름/형식 보존. Finish/Split/Rest 및 I GO U GO 포맷 불변.",
+    "autosave": "기존 debounce, insert -> 과거 소유행 조회 -> delete 순서 및 복원 로직 유지. DB migration 없음."
   },
   "program_item_schema": {
-    "description": "programs.items (jsonb 배열)에 들어가는 개별 항목의 스키마. 관리자가 JSON을 직접 붙여넣거나, parse-wod Edge Function이 Gemini로 이 형식을 생성함.",
-    "required_fields": ["section", "name", "type", "prescribed"],
-    "optional_fields": {
-      "subsection": "string. 소분류. 없으면 빈 문자열.",
-      "rounds": "number. type이 'amrap_by_round' | 'weight_by_round' | 'emom_by_round'일 때 필수.",
-      "movements": "string[]. type이 'barbell_conditioning'일 때 필수. 동작 이름 배열."
-    },
+    "required_fields": [
+      "section",
+      "name",
+      "type",
+      "prescribed"
+    ],
+    "optional_fields": [
+      "subsection",
+      "rounds",
+      "movements"
+    ],
     "valid_types": [
       "weight",
       "for_time",
@@ -102,50 +129,52 @@
       "barbell_conditioning",
       "amrap_by_round",
       "weight_by_round",
-      "emom_by_round"
+      "emom_by_round",
+      "distance",
+      "calories",
+      "note",
+      "check"
     ],
-    "type_meaning": {
-      "weight": "단일 무게 하나만 기록",
-      "for_time": "완료 시간(분:초) 기록",
-      "amrap": "총 개수/라운드 하나만 기록",
-      "amrap_by_round": "무게 고정, 라운드마다 개수만 다르게 기록 (rounds 필드 필요)",
-      "weight_by_round": "라운드마다 무게 자체가 바뀜, 라운드마다 무게 기록 (rounds 필드 필요)",
-      "emom_by_round": "라운드마다 언브로큰/브로큰 여부 기록 (rounds 필드 필요)",
-      "emom_complete": "EMOM 전체에 대해 완료/일부실패만 기록",
-      "reps": "숫자로 기록 가능한 단순 횟수",
-      "barbell_conditioning": "여러 바벨 동작이 섞인 컨디셔닝, 동작별로 무게 다름 (movements 필드 필요)"
-    },
-    "known_inconsistency": "Edge Function(parse-wod)의 Gemini 프롬프트가 한때 프론트엔드 스키마와 어긋나 있었음(구버전은 'progressive_weight' 타입을 쓰고 amrap_by_round/weight_by_round/emom_by_round가 없었음). 현재 supabase-functions/parse-wod.ts는 최신 9개 타입 기준으로 맞춰둔 상태이니, Supabase 대시보드에 배포된 실제 함수도 이 파일 내용으로 교체 필요."
+    "note": "실제 validateProgramItems의 13개 타입. parse-wod의 배포된 서버 구현은 이번 작업에서 확인하지 않음."
   },
-  "unit_system": {
-    "storage": "모든 무게는 DB에 항상 kg으로 저장됨 (weight_kg 형태 컬럼은 아니지만 값 자체가 kg 기준).",
-    "display_default": "lb 우선 표시 (localStorage 'weightUnit' 기본값 'lb'). 사용자가 kg으로 바꾸면 그 브라우저에서는 계속 kg으로 기억됨.",
-    "conversion_constant": "KG_PER_LB = 0.45359237"
+  "supabase_tables_used": [
+    "programs",
+    "records",
+    "profile_settings",
+    "key_lifts",
+    "key_lift_history",
+    "movement_videos"
+  ],
+  "progress_structure": {
+    "entry": "js/progress.js renderProgress",
+    "range": "기본 최근 4주, 전체 선택",
+    "pr": "원본 allRecs 순회 및 PR key/제외조건/판정 그대로",
+    "pace": "js/pace.js에 재사용 분석/목표 함수. session 생성·비교·DOM 렌더는 renderProgress 안에 유지하여 1차에서 closure를 바꾸지 않음.",
+    "limiter": "선택 lim, IGUG stop, 미완료 parts에서 원본 카운트",
+    "lifting": "RM 추정 1RM 등 기존 계산 유지. liftCard는 기존처럼 DOM에 append하지 않아 숨김."
   },
-  "key_frontend_functions": {
-    "getPreferredUnit / setPreferredUnit": "localStorage 기반 단위 설정 관리",
-    "toKg / fromKg / formatWeight": "단위 변환 및 표시 (소수점 1자리로 반올림)",
-    "renderLogForm": "오늘 운동 탭의 입력 폼 렌더링, 항목 type별로 다른 input UI 생성",
-    "renderBoard / renderLeaderboardFor": "전체 기록 탭의 날짜별 리더보드",
-    "showProfileDetail / renderProfileBody": "선수 프로필 상세 페이지 (주요 리프트, 무게 계산기, 날짜별 기록, 동작별 기록 검색)",
-    "buildWeightCalcBox": "무게 계산기 UI (퍼센트 계산 + 단계별 증량 계산 + 바벨 플레이트 계산)",
-    "calcPlatesForWeight": "동적계획법(DP) 기반 바벨 플레이트 조합 계산기. 목표 무게에 그램 단위로 가장 근접한(살짝 초과도 허용) 원판 조합을 찾음",
-    "buildDateLookupBox": "프로필에서 날짜 선택 시 그날의 모든 기록을 프로그램 원본 순서대로 정렬해서 보여줌",
-    "validateProgramItems": "JSON 게시 전 항목 유효성 검사 (필수 필드, type 유효성, rounds/movements 필드 존재 여부)"
+  "pace_thresholds": {
+    "allout": "firstExcess >= 0.06 && drop12 >= 2 * max(laterDrop, 0.005)",
+    "even": "cv <= 0.04 && abs(slope) <= 0.01",
+    "negative": "halfGain >= 0.03",
+    "positive": "slope < -0.01",
+    "variable": "cv > 0.06",
+    "baseline": "이전 동일 구성 기록 최근 3개 level 중앙값, ±2% 기준",
+    "target_progression": "이전 even + target 존재 + hits/전체세트 >= 0.8이면 base *= 0.985",
+    "target_tolerance": "max(0.03 * target, time이면 3초, 그 외 1)"
   },
-  "gym_equipment": {
-    "bars": [
-      { "label": "남자바", "exact_weight": "45lb (20.4kg)" },
-      { "label": "여자바", "exact_weight": "35lb (15.9kg)" }
-    ],
-    "plates_lb": [10, 15, 25, 35, 45],
-    "plates_kg": [0.5, 1, 1.5, 2, 2.5, 5, 10, 15, 20, 25],
-    "note": "바벨 플레이트 계산기(calcPlatesForWeight)가 이 재고 목록을 기준으로 조합을 계산함. 재고가 바뀌면 index.html의 PLATE_INVENTORY, BAR_INVENTORY 상수를 수정해야 함."
+  "pwa": {
+    "cache": "jogym-shell-v47",
+    "worker_registration": "app.js window load -> navigator.serviceWorker.register(sw.js), 기존 scope/정책 보존.",
+    "cdn": "Chart.js, Supabase, 외부 font는 기존처럼 precache에 없음. 최초부터 인터넷 없는 환경 전체 실행을 보장하는 것으로 해석하면 안 됨."
   },
-  "known_limitations": [
-    "사용자 이름이 자유 텍스트라 오타/중복 시 다른 사람으로 기록됨 (예: '민수' vs '민수 ' 공백 차이도 다른 사람 취급)",
-    "관리자 비밀번호가 클라이언트 사이드 문자열 비교라 개발자도구로 우회 가능 (진짜 보안 아님, 팀 내부용 가벼운 보호 장치)",
-    "record 삭제/수정은 프로필 페이지에서만 가능, 관리자가 대신 수정해주는 기능은 없음",
-    "같은 사람이 같은 항목을 실수로 두 번 저장해도 중복 방지 로직 없음 (수동으로 하나 삭제해야 함)"
-  ]
+  "modification_cautions": [
+    "classic script 순서 유지. 새로운 top-level 실행문은 선언되기 전 다른 파일의 const/let에 접근하지 않게 확인.",
+    "함수뿐 아니라 전역 상태와 inline DOM handler 이름도 계약의 일부.",
+    "Supabase schema/RLS/RPC, storage key, 특수 JSON, 사용자 문구·스타일·알고리즘 임의 변경 금지.",
+    "서비스 워커 shell 목록과 cache version을 파일 변경에 맞춰 관리.",
+    "자동 fixture 검증은 운영 Supabase RLS/PIN/관리자 계정 검증을 대체하지 않음.",
+    "main 병합 전 docs/REFACTOR_REPORT.md의 사람 확인 항목 수행."
+  ],
+  "potential_issues_document": "docs/POTENTIAL_ISSUES.md"
 }

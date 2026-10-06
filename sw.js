@@ -1,5 +1,5 @@
-const CACHE_NAME = 'jogym-shell-v45';
-const SHELL_ASSETS = ['./', './index.html', './icon-192.png', './icon-512.png', './manifest.json'];
+const CACHE_NAME = 'jogym-shell-v47';
+const SHELL_ASSETS = ['./', './index.html', './icon-192.png', './icon-512.png', './manifest.json', './css/style.css', './js/config.js', './js/utils.js', './js/programs.js', './js/charts.js', './js/records.js', './js/pace.js', './js/progress.js', './js/leaderboard.js', './js/profile.js', './js/admin.js', './js/weight-calculator.js', './js/supabase.js', './js/app.js'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
