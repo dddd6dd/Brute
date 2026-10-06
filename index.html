@@ -126,7 +126,7 @@
   .status.ok { color: var(--text-success); }
   .status.err { color: var(--text-danger); }
   .error-box { font-size:14px; color: var(--text-danger); white-space: pre-wrap; word-break: break-all; margin-top: 8px; }
-  .tag { font-size:13px; padding: 2px 8px; border-radius: 12px; font-family: var(--font-mono); display: inline-block; max-width: 100%; }
+  .tag { font-size:13px; padding: 2px 8px; border-radius: 12px; font-family: inherit; display: inline-block; max-width: 100%; }
   .tag.rx { background: var(--bg-success); color: var(--text-success); }
   .tag.scaled { background: var(--bg-warning); color: var(--text-warning); }
   .item-name { font-weight: 500; font-size:16px; }
@@ -181,21 +181,21 @@
 <body>
 
 <div class="hero-card card">
-  <div class="top-pill"><span class="dot"></span>FOR · JOGYM</div>
-  <h1 style="margin-bottom:24px;">I AM BRUTE</h1>
+  <div class="top-pill" id="admin-secret" style="cursor:default; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent;"><span class="dot"></span>FOR · JOGYM</div>
+  <h1 id="home-title" style="margin-bottom:24px; cursor:default; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent;">I AM BRUTE</h1>
 </div>
 
-<div class="tabs">
+<div class="tabs" id="main-tabs">
   <button class="tab-btn active" id="tab-log" title="오늘 운동" aria-label="오늘 운동">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5v11"/><path d="M17.5 6.5v11"/><path d="M3 9.5v5"/><path d="M21 9.5v5"/><path d="M6.5 12h11"/></svg>
   </button>
-  <button class="tab-btn" id="tab-board" title="전체 기록" aria-label="전체 기록">
+  <button class="tab-btn" id="tab-board" title="Progress" aria-label="Progress">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
   </button>
   <button class="tab-btn" id="tab-profile" title="선수 프로필" aria-label="선수 프로필">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-3.9 3.6-6 8-6s8 2.1 8 6"/></svg>
   </button>
-  <button class="tab-btn" id="tab-admin" title="관리자" aria-label="관리자">
+  <button class="tab-btn" id="tab-admin" title="관리자" aria-label="관리자" style="display:none;">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
   </button>
 </div>
@@ -226,25 +226,18 @@
     <button class="primary" id="admin-unlock-btn" style="width:100%;">확인</button>
   </div>
   <div id="admin-panel" class="hidden">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;"><p class="eyebrow" style="margin:0;">ADMIN</p><button type="button" id="adm-exit" style="height:30px; font-size:13px; padding:0 12px;">나가기</button></div>
+    <div id="adm-tabs" style="display:flex; gap:4px; padding:4px; margin-bottom:20px; border-radius:999px; background:var(--surface-2); border:0.5px solid var(--border);"><button type="button" class="adm-tab active" data-sec="program" style="flex:1; height:36px; font-size:14px; border-radius:999px; border:none; box-shadow:none; background:var(--surface-1); color:var(--text-primary); font-weight:600;">프로그램</button><button type="button" class="adm-tab" data-sec="video" style="flex:1; height:36px; font-size:14px; border-radius:999px; border:none; box-shadow:none; background:transparent; color:var(--text-secondary); font-weight:400;">동작 영상</button><button type="button" class="adm-tab" data-sec="pin" style="flex:1; height:36px; font-size:14px; border-radius:999px; border:none; box-shadow:none; background:transparent; color:var(--text-secondary); font-weight:400;">PIN 관리</button></div>
+    <div id="adm-sec-program">
     <label>날짜</label>
     <input type="date" id="admin-date" style="width:160px; margin-bottom:12px;" />
 
     <div class="row" style="margin-bottom:8px;">
-      <button id="mode-ai-btn" class="primary" style="height:32px; font-size:15px;">AI 자동 추출</button>
-      <button id="mode-json-btn" style="height:32px; font-size:15px;">JSON 붙여넣기</button>
+      <button id="mode-json-btn" class="primary" style="height:32px; font-size:15px;">JSON 붙여넣기</button>
+      <button id="mode-ai-btn" style="height:32px; font-size:15px;">AI 자동 추출</button>
     </div>
 
-    <div id="mode-ai">
-      <label>오늘 훈련프로그램 붙여넣기</label>
-      <textarea id="program-text" rows="10" placeholder="오늘 훈련프로그램 텍스트를 여기에 붙여넣어주세요"></textarea>
-      <div class="row" style="margin-top:12px;">
-        <button class="primary" id="parse-btn">항목 자동 추출하기</button>
-        <span class="status" id="parse-status"></span>
-      </div>
-      <div class="error-box" id="parse-error"></div>
-    </div>
-
-    <div id="mode-json" class="hidden">
+    <div id="mode-json">
       <p class="muted" style="margin-bottom:8px;">JSON 배열을 붙여넣고 불러오면 아래 편집기에서 다듬을 수 있어요.</p>
       <textarea id="json-text" rows="12" placeholder='[{"section":"...","subsection":"...","name":"...","type":"weight","prescribed":"..."}, ...]'></textarea>
       <div class="row" style="margin-top:12px;">
@@ -252,6 +245,16 @@
         <span class="status" id="json-status"></span>
       </div>
       <div class="error-box" id="json-error"></div>
+    </div>
+
+    <div id="mode-ai" class="hidden">
+      <label>오늘 훈련프로그램 붙여넣기</label>
+      <textarea id="program-text" rows="10" placeholder="오늘 훈련프로그램 텍스트를 여기에 붙여넣어주세요"></textarea>
+      <div class="row" style="margin-top:12px;">
+        <button class="primary" id="parse-btn">항목 자동 추출하기</button>
+        <span class="status" id="parse-status"></span>
+      </div>
+      <div class="error-box" id="parse-error"></div>
     </div>
 
     <div id="items-editor-wrap" class="hidden">
@@ -272,7 +275,8 @@
     <hr style="border:none; border-top:0.5px solid var(--border); margin:24px 0;" />
     <p class="muted" style="margin-bottom:8px;">등록된 프로그램 관리</p>
     <div id="admin-program-list"></div>
-    <hr style="border:none; border-top:0.5px solid var(--border); margin:24px 0;" />
+    </div>
+    <div id="adm-sec-video" class="hidden">
     <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:4px;"><p class="muted" style="margin:0;">동작 영상</p><span class="muted" id="mv-count" style="font-size:13px;"></span></div>
     <p class="muted" style="font-size:13px; margin:0 0 10px;">등록한 동작은 운동 화면에서 이름 옆에 유튜브 아이콘이 붙어요.</p>
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;"><input type="date" id="mv-date" style="width:160px;" /><span class="muted" style="font-size:13px;">이 날 운동에서 동작을 골라요</span></div>
@@ -282,8 +286,13 @@
       <div style="display:flex; gap:8px;"><input type="url" id="mv-url" placeholder="유튜브 링크" style="flex:1; min-width:0;" /><button class="primary" id="mv-add-btn" style="flex-shrink:0;">저장</button></div>
       <span class="status" id="mv-status"></span>
     </div>
-    <input type="text" id="mv-search" placeholder="등록된 영상 검색" style="width:100%; margin-bottom:4px;" />
+    <input type="text" id="mv-search" placeholder="검색" style="width:160px; height:34px; font-size:14px; margin-bottom:4px;" />
     <div id="mv-list"></div>
+    </div>
+    <div id="adm-sec-pin" class="hidden">
+      <p class="muted" style="font-size:13px; margin:0 0 12px;">비공개 프로필 목록이에요. 초기화하면 PIN이 지워지고 공개로 바뀌어요. 기록은 그대로예요. 본인이 다시 비공개를 켜고 새 PIN을 정하면 돼요.</p>
+      <div id="adm-pin-list"></div>
+    </div>
   </div>
 </div>
 
@@ -706,14 +715,73 @@ function switchTab(tab){
     document.getElementById('tab-'+t).classList.toggle('active', t === tab);
   });
   if(tab === 'log') loadDatesForLog();
-  if(tab === 'board') renderBoard();
+  if(tab === 'board') renderProgress();
   if(tab === 'profile') renderProfileList();
-  if(tab === 'admin' && !document.getElementById('admin-panel').classList.contains('hidden')) renderAdminProgramList();
+  document.getElementById('main-tabs').style.display = tab === 'admin' ? 'none' : '';
+  if(tab === 'admin' && !document.getElementById('admin-panel').classList.contains('hidden')) showAdminSection(ADMIN_SEC);
 }
+let ADMIN_SEC = 'program';
+function showAdminSection(sec){
+  ADMIN_SEC = sec;
+  ['program','video','pin'].forEach(k=>{
+    document.getElementById('adm-sec-' + k).classList.toggle('hidden', k !== sec);
+  });
+  document.querySelectorAll('.adm-tab').forEach(b=>{
+    const on = b.dataset.sec === sec;
+    b.classList.toggle('active', on);
+    b.style.background = on ? 'var(--surface-1)' : 'transparent';
+    b.style.color = on ? 'var(--text-primary)' : 'var(--text-secondary)';
+    b.style.fontWeight = on ? '600' : '400';
+  });
+  if(sec === 'program') renderAdminProgramList();
+  if(sec === 'video'){ renderMovementPicker(); renderMovementVideoList(); }
+  if(sec === 'pin') renderAdminPinList();
+}
+async function renderAdminPinList(){
+  const el = document.getElementById('adm-pin-list');
+  el.innerHTML = '<p class="muted" style="font-size:14px;">불러오고 있어요...</p>';
+  const { data, error } = await sb.from('profile_settings').select('name, is_private').eq('is_private', true).order('name');
+  if(error){ el.innerHTML = '<p class="status err">' + escapeHtml(error.message) + '</p>'; return; }
+  if(!data || !data.length){ el.innerHTML = '<p class="muted" style="font-size:14px;">비공개 프로필이 없어요.</p>'; return; }
+  el.innerHTML = '';
+  data.forEach(r=>{
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:0.5px solid var(--border);';
+    row.innerHTML = '<span style="flex:1; min-width:0; font-size:15px; overflow:hidden; text-overflow:ellipsis;">' + escapeHtml(r.name) + '</span><span class="status" style="font-size:13px;"></span><button type="button" class="danger" style="height:32px; font-size:14px; padding:0 12px; flex-shrink:0;">PIN 초기화</button>';
+    const st = row.querySelector('.status');
+    row.querySelector('button').onclick = async ()=>{
+      if(!confirm(r.name + '님의 PIN을 초기화할까요? 공개 프로필로 바뀌고, 기록은 그대로 남아요.')) return;
+      const { data: res, error: err } = await sb.rpc('admin_reset_profile', { p_name: r.name });
+      if(err || !res || !res.ok){ st.className = 'status err'; st.textContent = err ? err.message : pinErrorMessage(res); return; }
+      setProfileToken(r.name, null);
+      renderAdminPinList();
+    };
+    el.appendChild(row);
+  });
+}
+document.querySelectorAll('.adm-tab').forEach(b => b.onclick = ()=> showAdminSection(b.dataset.sec));
+document.getElementById('adm-exit').onclick = ()=> switchTab('log');
+(()=>{
+  let last = 0;
+  document.getElementById('home-title').addEventListener('click', ()=>{
+    const now = Date.now();
+    if(now - last < 400){ last = 0; switchTab('log'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    else last = now;
+  });
+})();
 document.getElementById('tab-log').onclick = ()=> switchTab('log');
 document.getElementById('tab-board').onclick = ()=> switchTab('board');
 document.getElementById('tab-profile').onclick = ()=> switchTab('profile');
 document.getElementById('tab-admin').onclick = ()=> switchTab('admin');
+(()=>{
+  let taps = 0, timer = null;
+  document.getElementById('admin-secret').addEventListener('click', ()=>{
+    taps++;
+    clearTimeout(timer);
+    timer = setTimeout(()=>{ taps = 0; }, 1500);
+    if(taps >= 5){ taps = 0; switchTab('admin'); }
+  });
+})();
 
 async function unlockAdmin(){
   const btn = document.getElementById('admin-unlock-btn');
@@ -730,9 +798,7 @@ async function unlockAdmin(){
   sessionStorage.setItem('bruteAdminToken', data.token);
   fadeSwap(document.getElementById('admin-panel'), document.getElementById('admin-gate'));
   document.getElementById('admin-date').value = todayStr();
-  renderAdminProgramList();
-  renderMovementVideoList();
-  renderMovementPicker();
+  showAdminSection('program');
   decorateMovementVideos(document);
 }
 document.getElementById('mv-date').onchange = ()=> renderMovementPicker();
@@ -1183,6 +1249,7 @@ function buildMultiPartCard(parts, subName, sectionName){
     + '<span class="mp-total" style="font-size:16px; font-weight:600;"></span></div>'
     + '<div class="mp-capnote muted" style="font-size:13px; margin-top:4px; text-align:right;"></div>'
     + '<div class="row" style="margin:12px 0 8px;"><label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="mp-skip" style="width:auto; height:auto;" />오늘 생략</label></div>'
+    + '<div style="display:flex; align-items:center; gap:8px; margin:0 0 8px;"><span class="muted" style="font-size:14px; flex-shrink:0;">아쉬운 동작</span><select class="mp-lim" style="flex:1; min-width:0; padding:0 8px;"><option value="">없음</option>' + [...new Set(parts.flatMap(x => splitPrescribedLines(x.prescribed).map(l => extractMovementName(l)).filter(Boolean).map(limName)))].map(n => '<option value="' + escapeAttr(n) + '">' + escapeHtml(n) + '</option>').join('') + '</select></div>'
     + '<input type="text" class="mp-notes" placeholder="메모 (선택, 예: BMU 5개까지 하고 끝)" style="width:100%; font-size:15px;" />';
   card.innerHTML = html;
 
@@ -1245,6 +1312,7 @@ function buildMultiPartCard(parts, subName, sectionName){
       if(anyUnfin) spec = '타임캡 걸림' + (capMin ? ' (' + capMin + ':00)' : '');
       else if(capMin) spec = '타임캡 ' + capMin + ':00 · ' + (last <= capMin * 60 ? fmtClock(capMin * 60 - last) + ' 남김' : fmtClock(last - capMin * 60) + ' 초과');
       const d = {}; if(spec) d.spec = spec; if(notes) d.notes = notes; if(capMin) d.cap = capMin;
+      if(card.querySelector('.mp-lim').value) d.lim = card.querySelector('.mp-lim').value;
       recs.push({ date, name, item_name: (stripLabelPrefix(subName) || stripLabelPrefix(sectionName)) + ' · Total', section: sec, type: 'for_time', value: anyUnfin ? 'CAP' : fmtClock(last), scaled: !!notes, scale_detail: '§' + JSON.stringify(d), skipped: false });
     }
     return recs;
@@ -1263,7 +1331,7 @@ function buildMultiPartCard(parts, subName, sectionName){
       }
       if(i >= 0 && pd.unfin){ rows[i].querySelector('.mp-unfin').checked = true; rows[i].querySelector('.mp-unfin-reps').value = pd.reps || 0; }
       if(i >= 0 && pd.clock != null) setClock(rows[i], pd.clock);
-      if(r.item_name === totalName){ if(pd.notes) card.querySelector('.mp-notes').value = pd.notes; if(pd.cap) card.querySelector('.mp-cap').value = pd.cap; }
+      if(r.item_name === totalName){ if(pd.lim) card.querySelector('.mp-lim').value = pd.lim; if(pd.notes) card.querySelector('.mp-notes').value = pd.notes; if(pd.cap) card.querySelector('.mp-cap').value = pd.cap; }
     });
     compute();
   };
@@ -1281,6 +1349,63 @@ function repeatSetsCount(it){
   if(n < 2 || n > 20) return 0;
   return (parseRestSec(it.prescribed) > 0 || /for\s*time/i.test(m[3])) ? n : 0;
 }
+function igugMoves(it){
+  const lines = splitPrescribedLines(it.prescribed);
+  const out = [];
+  let started = false;
+  for(const l of lines){
+    if(!started){ if(/^\s*\d+\s*(sets?|rounds?)\b/i.test(l)){ started = true; } continue; }
+    if(/^-?\s*rest\b/i.test(l) || l === '') { if(out.length) break; else continue; }
+    const m = l.match(/^\s*(\d+)(?:\/\d+)?\s+(.+)/);
+    if(m) out.push({ label: l.replace(/\s*@.*$/, '').trim(), reps: parseInt(m[1]) });
+  }
+  return out;
+}
+// 지난 같은 요일·같은 형식 기록으로 목표 세트 페이스를 잡아줘요 (근거가 있을 때만)
+async function suggestTargetPace(card, it, n, rest, readTarget, compute){
+  const date = LOG_CTX.date, name = LOG_CTX.name;
+  const reasonEl = card.querySelector('.rs-treason');
+  const noBase = ()=>{ if(!readTarget()) reasonEl.textContent = '같은 요일·형식 기록이 생기면 지난 기록으로 기준을 잡아드려요. 직접 넣어도 돼요.'; };
+  if(!date || !name || !rest){ noBase(); return; }
+  const head = (splitPrescribedLines(it.prescribed).filter(Boolean)[0] || '').trim().toLowerCase();
+  const wd = new Date(date + 'T00:00:00').getDay();
+  const { data: progs } = await sb.from('programs').select('date, items').lt('date', date).order('date', { ascending: false }).limit(60);
+  const cands = (progs || []).filter(pg => new Date(pg.date + 'T00:00:00').getDay() === wd)
+    .map(pg => ({ date: pg.date, item: (pg.items || []).find(x => x.type === 'for_time' && repeatSetsCount(x) === n && parseRestSec(x.prescribed) === rest && (splitPrescribedLines(x.prescribed).filter(Boolean)[0] || '').trim().toLowerCase() === head) }))
+    .filter(c => c.item);
+  const sessions = [];
+  for(const c of cands){
+    if(sessions.length >= 6) break;
+    const { data: rr } = await sb.from('records').select('item_name, value, scale_detail, skipped').eq('date', c.date).eq('name', name);
+    const main = (rr || []).find(r => r.item_name === c.item.name);
+    const mpd = main ? (parsePersonalDetail(main) || {}) : {};
+    if(mpd.igug) continue;
+    const sp = (rr || []).filter(r => r.item_name.startsWith(c.item.name + ' - ') && /\d+R$/.test(r.item_name) && !r.skipped)
+      .map(r => ({ n: +r.item_name.match(/(\d+)R$/)[1], s: clockSec(r.value) })).filter(x => x.s != null).sort((a, b) => a.n - b.n).map(x => x.s);
+    if(sp.length < 3) continue;
+    sessions.push({ date: c.date, sp, mpd, changed: paceChanged(it, c.item) });
+  }
+  if(!sessions.length){ noBase(); return; }
+  const avgRest = sp => sp.slice(1).reduce((a, b) => a + b, 0) / (sp.length - 1);
+  const valid = sessions.filter(x => !x.changed).slice(0, 3);
+  let base, why;
+  if(valid.length){
+    const vals = valid.map(x => avgRest(x.sp)).sort((a, b) => a - b);
+    base = vals[Math.floor(vals.length / 2)];
+    why = (valid.length === 1 ? shortD(valid[0].date) : '최근 ' + valid.length + '번') + ' ' + WD[wd] + '요일 2세트 이후 평균' + (valid.length > 1 ? '의 중앙값' : '') + ' 기준이에요';
+    const last = valid[0], pat = pacePattern(last.sp, false);
+    if(pat && pat.key === 'even' && last.mpd.target && last.mpd.hits != null && last.mpd.hits / last.sp.length >= 0.8){ base *= 0.985; why += '. 지난번 고르게 목표를 지켜서 1.5% 당겼어요'; }
+  } else {
+    base = avgRest(sessions[0].sp);
+    why = '참고용 · ' + shortD(sessions[0].date) + ' 기록 기준이에요. 구성이 달라서 그대로 비교하긴 어려워요';
+  }
+  const target = Math.round(base);
+  if(card._targetManual || readTarget() || !card.isConnected) return;
+  card.querySelector('.rs-tmin').value = Math.floor(target / 60);
+  card.querySelector('.rs-tsec').value = target % 60;
+  reasonEl.textContent = why + '.';
+  compute();
+}
 function buildRepeatSetCard(it){
   const n = repeatSetsCount(it);
   const rest = parseRestSec(it.prescribed);
@@ -1289,6 +1414,22 @@ function buildRepeatSetCard(it){
   const card = document.createElement('div');
   card.className = 'card multi-part-card';
   card.style.marginLeft = '0';
+  const igMoves = igugMoves(it);
+  let igRows = '';
+  for(let i = 1; i <= n; i++){
+    igRows += '<div class="ig-row" style="display:grid; grid-template-columns:52px minmax(0,1fr) 64px 64px; gap:8px; align-items:center; padding:8px 0; border-top:0.5px solid var(--border);">'
+      + '<span class="muted" style="font-size:14px;">' + i + unitWord + '</span>'
+      + '<select class="ig-stop" style="min-width:0; padding:0 6px;"><option value="">멈춘 동작</option>' + igMoves.map((m, j) => '<option value="' + j + '">' + escapeHtml(m.label) + '</option>').join('') + '<option value="all">전부 완료</option></select>'
+      + '<input type="number" inputmode="numeric" class="ig-extra" placeholder="+개수" style="min-width:0;" />'
+      + '<span class="ig-total" style="text-align:right; font-size:14px; font-weight:600;"></span></div>';
+  }
+  const igHtml = '<div class="rs-igug" style="display:none;">'
+    + '<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 6px;"><span class="muted" style="font-size:14px;">Work</span><input type="number" inputmode="numeric" class="ig-work" value="3" style="width:56px;" /><span class="muted" style="font-size:14px;">분 · Rest</span><input type="number" inputmode="numeric" class="ig-rest" value="3" style="width:56px;" /><span class="muted" style="font-size:14px;">분</span></div>'
+    + '<p class="muted" style="font-size:13px; margin:0 0 6px;">Work 시간이 끝났을 때 하고 있던 동작과 그 동작에서 한 개수를 넣어주세요. 세트별 총 개수는 자동으로 계산돼요.</p>'
+    + '<div style="display:grid; grid-template-columns:52px minmax(0,1fr) 64px 64px; gap:8px; font-size:12px; color:var(--text-muted); padding:4px 0;"><span></span><span>멈춘 동작</span><span>개수</span><span style="text-align:right;">합계</span></div>'
+    + igRows
+    + '<div class="ig-sum muted" style="font-size:13px; margin-top:8px; text-align:right;"></div>'
+    + '</div>';
   let rowsHtml = '';
   for(let i = 1; i <= n; i++){
     rowsHtml += '<div class="rs-row" style="display:grid; grid-template-columns:52px auto minmax(0,1fr); align-items:center; gap:10px; padding:8px 0; border-top:0.5px solid var(--border);">'
@@ -1299,7 +1440,10 @@ function buildRepeatSetCard(it){
   }
   card.innerHTML = '<div style="margin-bottom:8px;"><span class="item-name">' + escapeHtml(it.name) + '</span></div>'
     + '<div class="muted" style="margin:0 0 10px; line-height:1.55;">' + formatPrescribed(it.prescribed) + '</div>'
+    + '<div class="rs-modes" style="display:flex; gap:6px; margin:0 0 10px;"><button type="button" class="rs-mode" data-m="std" style="height:30px; font-size:13px; padding:0 12px; border-radius:999px;">기본</button><button type="button" class="rs-mode" data-m="igug" style="height:30px; font-size:13px; padding:0 12px; border-radius:999px;">I GO U GO</button></div>'
+    + '<div class="rs-normal">'
     + '<p class="muted" style="font-size:13px; margin:0 0 6px;">' + unitWord + '가 끝날 때 시계 시간을 Finish에 적어주세요. ' + (rest ? unitWord + '별 시간과 다음 시작 시간(Rest ' + fmtClock(rest) + ')은 자동으로 계산돼요.' : unitWord + '별 시간은 자동으로 계산돼요.') + '</p>'
+    + '<div class="rs-target" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:0 0 8px; padding:10px 12px; border-radius:var(--radius); background:var(--surface-1);"><span style="font-size:13px; font-weight:600; margin-right:4px;">목표 세트</span><input type="number" inputmode="numeric" class="rs-tmin" placeholder="분" style="width:52px; height:34px;" /><span>:</span><input type="number" inputmode="numeric" class="rs-tsec" placeholder="초" style="width:52px; height:34px;" /><span class="rs-treason muted" style="font-size:12px; flex-basis:100%; line-height:1.4;"></span></div>'
     + '<div style="display:grid; grid-template-columns:52px auto minmax(0,1fr); gap:10px; font-size:12px; color:var(--text-muted); padding:4px 0;"><span></span><span>Finish</span><span style="text-align:right;">Split</span></div>'
     + rowsHtml
     + '<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:8px 0;"><label style="display:flex; align-items:center; gap:4px; font-size:14px; margin:0;"><input type="checkbox" class="rs-unfin" style="width:auto; height:auto;" />마지막 ' + unitWord + ' 못 끝냄</label><input type="number" inputmode="numeric" class="rs-unfin-reps" placeholder="완료한 개수" style="width:110px; display:none;" /></div>'
@@ -1307,10 +1451,14 @@ function buildRepeatSetCard(it){
     + '<div style="display:flex; align-items:center; gap:6px;"><span class="muted" style="font-size:14px;">타임캡</span><input type="number" inputmode="numeric" class="rs-cap" placeholder="분" value="' + (capSec ? Math.round(capSec / 60) : '') + '" style="width:64px;" /><span class="muted" style="font-size:14px;">분</span></div>'
     + '<span class="rs-total" style="font-size:16px; font-weight:600;"></span></div>'
     + '<div class="rs-pace muted" style="font-size:13px; margin-top:4px; text-align:right;"></div>'
+    + '</div>' + igHtml
     + '<div class="row" style="margin:12px 0 8px;"><label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="rs-skip" style="width:auto; height:auto;" />오늘 생략</label></div>'
+    + '<div style="display:flex; align-items:center; gap:8px; margin:0 0 8px;"><span class="muted" style="font-size:14px; flex-shrink:0;">아쉬운 동작</span><select class="rs-lim" style="flex:1; min-width:0; padding:0 8px;"><option value="">없음</option>' + [...new Set(igMoves.map(m => limName(m.label)))].map(n => '<option value="' + escapeAttr(n) + '">' + escapeHtml(n) + '</option>').join('') + '</select></div>'
     + '<input type="text" class="rs-notes" placeholder="메모 (선택, 예: 4' + unitWord + '부터 끊어감)" style="width:100%; font-size:15px;" />';
 
   const rows = [...card.querySelectorAll('.rs-row')];
+  const readTarget = ()=>{ const m = card.querySelector('.rs-tmin').value, sc = card.querySelector('.rs-tsec').value; if(m === '' && sc === '') return null; const t = (parseInt(m) || 0) * 60 + (parseInt(sc) || 0); return t > 0 ? t : null; };
+  card.querySelectorAll('.rs-tmin, .rs-tsec').forEach(x => x.addEventListener('input', ()=>{ card._targetManual = true; }));
   const compute = ()=>{
     let start = 0, last = null;
     const out = [];
@@ -1321,7 +1469,11 @@ function buildRepeatSetCard(it){
       const sp = row.querySelector('.rs-split'), nx = row.querySelector('.rs-next');
       if(split == null){ sp.textContent = ''; nx.textContent = ''; }
       else if(split <= 0){ sp.textContent = '시간 확인'; sp.style.color = 'var(--text-danger)'; nx.textContent = ''; }
-      else { sp.textContent = fmtClock(split); sp.style.color = ''; nx.textContent = (rest && i < rows.length - 1) ? fmtClock(clock + rest) + ' 시작' : ''; }
+      else {
+        sp.textContent = fmtClock(split); sp.style.color = '';
+        const t = readTarget(), dl = t ? split - t : null;
+        nx.innerHTML = [dl != null ? '<span style="color:' + (Math.abs(dl) <= paceTol(t, 'time') ? 'var(--text-success)' : dl < 0 ? 'var(--text-warning)' : 'var(--text-danger)') + ';">목표 ' + (dl > 0 ? '+' : dl < 0 ? '−' : '±') + Math.abs(dl) + '초</span>' : '', (rest && i < rows.length - 1) ? fmtClock(clock + rest) + ' 시작' : ''].filter(Boolean).join(' · ');
+      }
       out.push({ clock, split: split > 0 ? split : null });
       if(clock != null){ start = clock + rest; last = clock; }
     });
@@ -1346,12 +1498,65 @@ function buildRepeatSetCard(it){
   };
   card.querySelectorAll('input').forEach(inp => { inp.addEventListener('input', compute); inp.addEventListener('change', compute); });
   compute();
+  card._mode = 'std';
+  const setMode = m => {
+    card._mode = m;
+    card.querySelector('.rs-normal').style.display = m === 'igug' ? 'none' : '';
+    card.querySelector('.rs-igug').style.display = m === 'igug' ? '' : 'none';
+    card.querySelectorAll('.rs-mode').forEach(b=>{
+      const on = b.dataset.m === m;
+      b.style.background = on ? 'var(--text-primary)' : '';
+      b.style.color = on ? 'var(--surface-0)' : '';
+      b.style.fontWeight = on ? '600' : '400';
+    });
+  };
+  card.querySelectorAll('.rs-mode').forEach(b => b.addEventListener('click', ()=> setMode(b.dataset.m)));
+  setMode('std');
+  const igRowEls = [...card.querySelectorAll('.ig-row')];
+  const computeIg = ()=>{
+    const out = igRowEls.map(row=>{
+      const stop = row.querySelector('.ig-stop').value;
+      const extra = parseInt(row.querySelector('.ig-extra').value) || 0;
+      let total = null, label = '';
+      if(stop === 'all'){ total = igMoves.reduce((a, m) => a + m.reps, 0); label = '전부 완료'; }
+      else if(stop !== ''){ const j = +stop; total = igMoves.slice(0, j).reduce((a, m) => a + m.reps, 0) + extra; label = igMoves[j].label + ' 중 ' + extra + '개'; }
+      row.querySelector('.ig-total').textContent = total == null ? '' : total;
+      row.querySelector('.ig-extra').style.visibility = stop === 'all' ? 'hidden' : 'visible';
+      return { stop, extra, total, label };
+    });
+    const valid = out.map((o, i) => ({ ...o, i })).filter(o => o.total != null);
+    let sum = '';
+    if(valid.length){
+      const tot = valid.reduce((a, o) => a + o.total, 0);
+      const best = valid.reduce((a, b) => b.total > a.total ? b : a), worst = valid.reduce((a, b) => b.total < a.total ? b : a);
+      sum = '합계 ' + tot + '개 · 평균 ' + Math.round(tot / valid.length * 10) / 10 + (valid.length > 1 ? ' · 최고 ' + (best.i + 1) + unitWord + ' ' + best.total + ' · 최저 ' + (worst.i + 1) + unitWord + ' ' + worst.total : '');
+    }
+    card.querySelector('.ig-sum').textContent = sum;
+    return { out, valid, sum };
+  };
+  card.querySelectorAll('.ig-row select, .ig-row input').forEach(x => { x.addEventListener('input', computeIg); x.addEventListener('change', computeIg); });
   const skip = card.querySelector('.rs-skip');
   skip.onchange = ()=> rows.forEach(r => r.querySelectorAll('input').forEach(x => x.disabled = skip.checked));
 
   card._collect = (date, name)=>{
     const notes = card.querySelector('.rs-notes').value.trim();
     if(skip.checked) return [{ date, name, item_name: it.name, section: normSec(it.section), type: 'for_time', value: '생략', scaled: true, scale_detail: notes ? '생략: ' + notes : '생략함', skipped: true }];
+    if(card._mode === 'igug'){
+      const { out: io, valid, sum } = computeIg();
+      if(!valid.length) return [];
+      const work = parseInt(card.querySelector('.ig-work').value) || 3, rst = parseInt(card.querySelector('.ig-rest').value) || 3;
+      const recs = [];
+      io.forEach((o, i)=>{
+        if(o.total == null) return;
+        recs.push({ date, name, item_name: it.name + ' - ' + (i + 1) + 'R', section: normSec(it.section), type: 'reps', value: String(o.total), scaled: false, scale_detail: '§' + JSON.stringify({ spec: o.label, ig: { stop: o.stop, extra: o.extra } }), skipped: false });
+      });
+      const total = valid.reduce((a, o) => a + o.total, 0);
+      const d = { spec: 'I GO U GO · Work ' + work + ':00 / Rest ' + rst + ':00 · ' + sum, igug: { work, rest: rst } };
+      if(notes) d.notes = notes;
+      if(card.querySelector('.rs-lim').value) d.lim = card.querySelector('.rs-lim').value;
+      recs.push({ date, name, item_name: it.name, section: normSec(it.section), type: 'reps', value: String(total), scaled: !!notes, scale_detail: '§' + JSON.stringify(d), skipped: false });
+      return recs;
+    }
     const { out, last, capMin, pace, capText, unfin, reps } = compute();
     const recs = [];
     const lastI = out.reduce((m, o, i) => o.split != null ? i : m, -1);
@@ -1366,23 +1571,43 @@ function buildRepeatSetCard(it){
       if(spec) d.spec = spec;
       if(notes) d.notes = notes;
       if(capMin) d.cap = capMin;
+      if(card.querySelector('.rs-lim').value) d.lim = card.querySelector('.rs-lim').value;
+      const tg = readTarget();
+      if(tg){ d.target = tg; d.hits = out.filter(o => o.split != null && Math.abs(o.split - tg) <= paceTol(tg, 'time')).length; }
       recs.push({ date, name, item_name: it.name, section: normSec(it.section), type: 'for_time', value: fmtClock(last), scaled: !!notes, scale_detail: '§' + JSON.stringify(d), skipped: false });
     }
     return recs;
   };
   const roundRe = new RegExp('^' + escRe(it.name) + ' - (\\d+)R$');
   card._restore = recs => {
+    const tot = recs.find(r => r.item_name === it.name && !r.skipped);
+    const tpd = tot && parsePersonalDetail(tot);
+    if(tpd && tpd.igug){
+      setMode('igug');
+      card.querySelector('.ig-work').value = tpd.igug.work || 3;
+      card.querySelector('.ig-rest').value = tpd.igug.rest || 3;
+      if(tpd.notes) card.querySelector('.rs-notes').value = tpd.notes;
+      if(tpd.lim) card.querySelector('.rs-lim').value = tpd.lim;
+      recs.forEach(r=>{
+        const m = r.item_name.match(roundRe);
+        const pd = parsePersonalDetail(r) || {};
+        if(m && pd.ig && igRowEls[m[1] - 1]){ igRowEls[m[1] - 1].querySelector('.ig-stop').value = pd.ig.stop; igRowEls[m[1] - 1].querySelector('.ig-extra').value = pd.ig.extra || ''; }
+      });
+      computeIg();
+      return;
+    }
     recs.forEach(r=>{
       const pd = parsePersonalDetail(r) || {};
       if(r.skipped){ skip.checked = true; skip.onchange(); const rs = String(r.scale_detail || '').replace(/^생략:\s*/, ''); if(rs && rs !== '생략함') card.querySelector('.rs-notes').value = rs; return; }
       const m = r.item_name.match(roundRe);
       if(m && pd.unfin){ card.querySelector('.rs-unfin').checked = true; card.querySelector('.rs-unfin-reps').value = pd.reps || 0; }
       if(m && pd.clock != null && rows[m[1] - 1]){ rows[m[1] - 1].querySelector('.rs-min').value = Math.floor(pd.clock / 60); rows[m[1] - 1].querySelector('.rs-sec').value = pd.clock % 60; }
-      if(r.item_name === it.name){ if(pd.notes) card.querySelector('.rs-notes').value = pd.notes; if(pd.cap) card.querySelector('.rs-cap').value = pd.cap; }
+      if(r.item_name === it.name){ if(pd.target){ card.querySelector('.rs-tmin').value = Math.floor(pd.target / 60); card.querySelector('.rs-tsec').value = pd.target % 60; card._targetManual = true; card.querySelector('.rs-treason').textContent = '저장된 목표예요.'; } if(pd.lim) card.querySelector('.rs-lim').value = pd.lim; if(pd.notes) card.querySelector('.rs-notes').value = pd.notes; if(pd.cap) card.querySelector('.rs-cap').value = pd.cap; }
     });
     compute();
   };
   attachAutosave(card, { collect: card._collect, owns: r => normSec(r.section) === normSec(it.section) && (r.item_name === it.name || roundRe.test(r.item_name)) });
+  suggestTargetPace(card, it, n, rest, readTarget, compute);
   return card;
 }
 
@@ -1785,7 +2010,7 @@ function saveCard(card){
   as.chain = as.chain.then(async ()=>{
     as.pending = false;
     const date = as.date, name = as.name;
-    if(!name){ setSaveStatus(card, 'err', '기록하는 사람을 먼저 정해주세요'); return; }
+    if(!name){ setSaveStatus(card, 'err', '위에서 프로필 이름을 먼저 정해주세요'); return; }
     if(!as.removing && (!card.isConnected || date !== LOG_CTX.date || name !== LOG_CTX.name)) return;
     const recs = as.removing ? [] : as.collect(date, name);
     const json = JSON.stringify(recs);
@@ -1810,6 +2035,7 @@ function saveCard(card){
     as.ids = newIds;
     as.last = json;
     as.lastErr = false;
+    if(recs.length) localStorage.setItem('bruteAutosaveSeen', '1');
     const t = new Date();
     setSaveStatus(card, 'ok', recs.length ? '저장됨 ' + t.getHours() + ':' + String(t.getMinutes()).padStart(2, '0') : (del.length ? '기록을 지웠어요' : ''));
   }).catch(()=>{ as.lastErr = true; setSaveStatus(card, 'err', '저장 실패 · 눌러서 다시 시도'); });
@@ -2055,9 +2281,9 @@ async function buildWhoBar(date){
     inp.onkeydown = e => { if(e.key === 'Enter') ok(); };
   };
   const askPin = (n)=>{
-    wrap.innerHTML = '<div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;"><span class="muted" style="font-size:14px;">기록하는 사람</span><strong style="font-size:16px; font-weight:600; flex:1;">' + escapeHtml(n) + '</strong><button type="button" class="who-change" style="height:32px; font-size:14px; padding:0 12px;">변경</button></div>'
+    wrap.innerHTML = '<div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;"><span class="muted" style="font-size:13px; letter-spacing:0.04em;">Profile</span><strong style="font-size:16px; font-weight:600; flex:1;">' + escapeHtml(n) + '</strong><button type="button" class="who-change" style="height:32px; font-size:14px; padding:0 12px;">변경</button></div>'
       + '<p class="muted" style="font-size:13px; margin:0 0 8px;">비공개 프로필이라 이 폰에서 PIN을 한 번 넣어야 기록할 수 있어요.</p>'
-      + '<div style="display:flex; gap:8px;"><input type="password" inputmode="numeric" maxlength="4" class="who-pin" placeholder="PIN 4자리" style="width:130px; text-align:center; letter-spacing:0.2em;" /><button type="button" class="primary who-pin-ok">확인</button></div>'
+      + '<div style="display:flex; gap:8px;"><input type="password" inputmode="numeric" maxlength="6" class="who-pin" placeholder="PIN 4~6자리" style="width:130px; text-align:center; letter-spacing:0.2em;" /><button type="button" class="primary who-pin-ok">확인</button></div>'
       + '<span class="status who-st"></span>';
     wrap.querySelector('.who-change').onclick = ()=>{ localStorage.removeItem('bruteLogName'); rerender(); };
     const pin = wrap.querySelector('.who-pin');
@@ -2076,8 +2302,8 @@ async function buildWhoBar(date){
   const setting = await getProfileSetting(saved);
   if(setting && setting.is_private && !(await canViewProfile(saved, setting))){ askPin(saved); return wrap; }
   LOG_CTX.name = saved;
-  wrap.innerHTML = '<div style="display:flex; align-items:center; gap:10px;"><span class="muted" style="font-size:14px;">기록하는 사람</span><strong style="font-size:16px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;">' + escapeHtml(saved) + '</strong><button type="button" class="who-change" style="height:32px; font-size:14px; padding:0 12px;">변경</button></div>'
-    + '<p class="muted" style="font-size:13px; margin:6px 0 0;">입력하면 카드마다 자동으로 저장돼요.</p>';
+  wrap.innerHTML = '<div style="display:flex; align-items:center; gap:10px;"><span class="muted" style="font-size:13px; letter-spacing:0.04em;">Profile</span><strong style="font-size:16px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;">' + escapeHtml(saved) + '</strong><button type="button" class="who-change" style="height:32px; font-size:14px; padding:0 12px;">변경</button></div>'
+    + (localStorage.getItem('bruteAutosaveSeen') ? '' : '<p class="muted" style="font-size:13px; margin:6px 0 0;">입력하면 카드마다 자동으로 저장돼요.</p>');
   wrap.querySelector('.who-change').onclick = async ()=>{ await flushLogSaves(); localStorage.removeItem('bruteLogName'); rerender(); };
   return wrap;
 }
@@ -2413,6 +2639,479 @@ async function renderLogForm(date){
   if(LOG_CTX.name) await restoreLogRecords(date, LOG_CTX.name, personal);
 }
 
+// ---------- Progress: 내 기록만으로 PR·페이스·리미터·리프팅 추세 ----------
+let PROGRESS_RANGE = '4w';
+const WD = ['일', '월', '화', '수', '목', '금', '토'];
+const MV_CATS = [
+  ['체조', /muscle\s*-?\s*up|\bbmu\b|\brmu\b|hspu|handstand|rope\s*climb|toes?\s*to\s*bar|\bt2b\b|chest\s*to\s*bar|\bc2b\b|pull\s*-?\s*ups?\b|wall\s*walk|pistol|dip/i],
+  ['바벨', /snatch|clean|jerk|squat|deadlift|\bohs\b|overhead|thruster|press|lunge/i],
+  ['머신·유산소', /\brow\b|ski|bike|echo|assault|\brun\b|double\s*under|calorie/i],
+  ['버피·박스', /burpee|box|wall\s*ball|jump/i]
+];
+function mvCat(n){ for(const [c, re] of MV_CATS) if(re.test(n)) return c; return '기타'; }
+function limName(label){
+  const base = extractMovementName(label) || String(label || '');
+  return base.replace(/\s+[\d./]+\s*(#|lbs?|kg|")?\s*(\([^)]*\))?$/i, '').trim();
+}
+const clockSec = v => { const m = String(v).match(/^(\d+):(\d{2})$/); return m ? +m[1] * 60 + +m[2] : null; };
+const shortD = d => { const p = String(d).split('-'); return (+p[1]) + '/' + (+p[2]); };
+const wdOf = d => WD[new Date(d + 'T00:00:00').getDay()];
+function spark(vals, w, hgt, invert){
+  const v = vals.filter(x => x != null);
+  if(v.length < 2) return '';
+  const mn = Math.min(...v), mx = Math.max(...v), span = (mx - mn) || 1;
+  const pts = vals.map((x, i) => x == null ? null : [Math.round(i / (vals.length - 1) * (w - 4) + 2), Math.round((invert ? (x - mn) / span : 1 - (x - mn) / span) * (hgt - 4) + 2)]).filter(Boolean);
+  return '<svg width="' + w + '" height="' + hgt + '" viewBox="0 0 ' + w + ' ' + hgt + '" aria-hidden="true" style="display:block;"><polyline points="' + pts.map(p => p.join(',')).join(' ') + '" fill="none" stroke="var(--border-accent)" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+}
+function bars(vals, higherBetter){
+  const v = vals.filter(x => x != null);
+  if(!v.length) return '';
+  const mx = Math.max(...v), mn = Math.min(...v);
+  return '<div style="display:flex; align-items:flex-end; gap:3px; height:28px;">' + vals.map(x => {
+    if(x == null) return '<span style="width:8px; height:4px; border-radius:2px; background:var(--border);"></span>';
+    const r = mx === mn ? 0.6 : (higherBetter ? (x - mn) / (mx - mn) : (x - mn) / (mx - mn));
+    return '<span style="width:8px; height:' + Math.round(6 + r * 22) + 'px; border-radius:2px; background:var(--border-accent); opacity:' + (0.45 + r * 0.55).toFixed(2) + ';"></span>';
+  }).join('') + '</div>';
+}
+// PACE 판정 (리서치 반영): 값은 모두 속도로 바꿔서 CV·기울기로 "고름", 내 기준 대비 %로 "빠름"을 따로 봐요.
+const PACE_LABEL = { even: '고르게', allout: '초반 과속', positive: '점점 느려짐', negative: '후반 상승', variable: '들쭉날쭉' };
+function paceRates(vals, higherBetter){ return vals.map(x => (x == null || x <= 0) ? null : (higherBetter ? x : 1 / x)); }
+function paceStats(rate){
+  const r = rate.filter(x => x != null);
+  const n = r.length;
+  const mean = a => a.reduce((s, x) => s + x, 0) / a.length;
+  const m = mean(r);
+  const sd = Math.sqrt(r.reduce((s, x) => s + (x - m) * (x - m), 0) / n);
+  const xs = r.map((_, i) => i + 1), mx = mean(xs);
+  const slope = (r.reduce((s, y, i) => s + (xs[i] - mx) * (y - m), 0) / xs.reduce((s, x) => s + (x - mx) * (x - mx), 0)) / m;
+  const rest = r.slice(1), restMean = mean(rest);
+  const drops = r.slice(1).map((x, i) => (r[i] - x) / r[i]);
+  const laterDrop = drops.length > 1 ? mean(drops.slice(1)) : 0;
+  const half = Math.floor(n / 2);
+  return { n, m, cv: sd / m, slope, firstExcess: r[0] / restMean - 1, drop12: drops[0] || 0, laterDrop, halfGain: mean(r.slice(n - half)) / mean(r.slice(0, half)) - 1, restMean };
+}
+function pacePattern(vals, higherBetter, rateOverride){
+  const rate = rateOverride || paceRates(vals, higherBetter);
+  if(rate.filter(x => x != null).length < 3) return null;
+  const s = paceStats(rate);
+  let key;
+  if(s.firstExcess >= 0.06 && s.drop12 >= 2 * Math.max(s.laterDrop, 0.005)) key = 'allout';
+  else if(s.cv <= 0.04 && Math.abs(s.slope) <= 0.01) key = 'even';
+  else if(s.halfGain >= 0.03) key = 'negative';
+  else if(s.slope < -0.01) key = 'positive';
+  else if(s.cv > 0.06) key = 'variable';
+  else key = 'even';
+  return { key, label: PACE_LABEL[key], stats: s };
+}
+function paceCoach(key, speed){
+  if(key === 'even') return speed === 'fast' ? '빠르면서 고르게 갔어요. 이 페이스가 이제 내 기준이에요.' : speed === 'similar' ? '평소 페이스를 끝까지 지켰어요.' : speed === 'slow' ? '고르게 갔어요. 다음엔 조금 더 밀어도 돼요.' : '세트 간 차이가 작았어요. 고르게 갔어요.';
+  if(key === 'allout') return speed === 'fast' ? '1세트가 너무 빨랐어요. 그래도 평균은 좋았어요.' : '1세트에 힘을 많이 썼어요. 다음엔 1세트를 목표에 맞춰 보세요.';
+  if(key === 'positive') return '뒤로 갈수록 느려졌어요. 첫 두 세트를 조금만 아껴 보세요.';
+  if(key === 'negative') return '뒤로 갈수록 빨라졌어요. 초반에 여유가 있었어요.';
+  if(key === 'variable') return '세트마다 차이가 컸어요. 한 세트 목표 하나만 정해 보세요.';
+  return '';
+}
+function paceChanged(itA, itB){
+  if(!itA || !itB) return true;
+  const mv = it => new Set(splitPrescribedLines(it.prescribed).map(l => extractMovementName(l)).filter(Boolean).map(l => normMv(limName(l))));
+  const wt = it => (String(it.prescribed).match(/\d+\s*\/\s*\d+\s*#|\d+(\.\d+)?\s*(lb|kg)\b/gi) || []).map(x => x.replace(/\s/g, '').toLowerCase()).sort().join('|');
+  const a = mv(itA), b = mv(itB);
+  const inter = [...a].filter(x => b.has(x)).length, uni = new Set([...a, ...b]).size || 1;
+  return inter / uni < 0.5 || wt(itA) !== wt(itB);
+}
+function paceTol(target, unit){ return Math.max(0.03 * target, unit === 'time' ? 3 : 1); }
+function slideToggle(el, open){
+  const isOpen = el.dataset.open === '1';
+  if(open === undefined) open = !isOpen;
+  if(open === isOpen) return;
+  el.dataset.open = open ? '1' : '';
+  const ease = 'cubic-bezier(0.32, 0.72, 0, 1)';
+  el.style.overflow = 'hidden';
+  el.style.transition = 'none';
+  const done = fn => { const te = e => { if(e.target === el && e.propertyName === 'height'){ el.removeEventListener('transitionend', te); fn(); } }; el.addEventListener('transitionend', te); };
+  if(open){
+    el.style.display = 'block';
+    const target = el.scrollHeight;
+    el.style.height = '0px'; el.style.opacity = '0'; el.style.transform = 'translateY(-6px)';
+    el.getBoundingClientRect();
+    el.style.transition = 'height 420ms ' + ease + ', opacity 300ms ease, transform 420ms ' + ease;
+    el.style.height = target + 'px'; el.style.opacity = '1'; el.style.transform = 'none';
+    done(()=>{ el.style.height = ''; el.style.overflow = ''; el.style.transition = ''; });
+  } else {
+    el.style.height = el.scrollHeight + 'px';
+    el.getBoundingClientRect();
+    el.style.transition = 'height 340ms ' + ease + ', opacity 220ms ease, transform 340ms ' + ease;
+    el.style.height = '0px'; el.style.opacity = '0'; el.style.transform = 'translateY(-4px)';
+    done(()=>{ el.style.display = 'none'; el.style.height = ''; el.style.overflow = ''; el.style.transition = ''; });
+  }
+}
+function paceDetailHtml(s, list, fmtV){
+  const hb = s.unit !== 'time';
+  const vals = s.vals;
+  let html = '<div style="font-weight:600; margin-bottom:10px;">' + escapeHtml(s.name.replace(/ · Total$/, '')) + '</div>';
+  if(s.kind === 'parts'){
+    html += s.partRecs.map(r => { const d = parsePersonalDetail(r) || {}; return '<div style="display:flex; justify-content:space-between; gap:8px; padding:3px 0;"><span>' + escapeHtml(r.item_name) + '</span><span style="font-weight:600;">' + (r.skipped ? '생략' : d.unfin ? '캡 · ' + (d.reps || 0) + '개' : escapeHtml(r.value)) + '</span></div>'; }).join('');
+    html += '<div class="muted" style="font-size:12px; margin-top:8px;">파트마다 동작이 달라서 페이스 판정 대신 끝냈는지와 파트 시간만 봐요.</div>';
+  } else {
+    const t = s.hits ? s.hits.t : null;
+    const vv = vals.filter(x => x != null);
+    const ref = t || (vv.length ? vv.reduce((a, b) => a + b, 0) / vv.length : 0);
+    const tol = paceTol(ref, s.unit);
+    const maxDev = Math.max(tol * 2, ...vv.map(x => Math.abs(x - ref)));
+    html += '<div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin:0 0 6px;"><span>' + (hb ? '적음' : '빠름') + '</span><span>' + (t ? '목표 ' : '평균 ') + fmtV(s, ref) + '</span><span>' + (hb ? '많음' : '느림') + '</span></div>';
+    html += '<div style="display:flex; flex-direction:column; gap:8px; margin:0 0 14px;">' + vals.map((x, i) => {
+      if(x == null) return '<div style="display:grid; grid-template-columns:36px minmax(0,1fr) 84px; align-items:center; gap:10px;"><span class="muted" style="font-size:12px;">' + (i + 1) + '세트</span><div style="height:10px; border-radius:5px; background:var(--surface-2);"></div><span class="muted" style="font-size:12px; text-align:right;">-</span></div>';
+      const diff = x - ref;
+      const ok = Math.abs(diff) <= tol;
+      const worse = hb ? diff < 0 : diff > 0;
+      const w = Math.max(3, Math.min(50, Math.abs(diff) / maxDev * 50));
+      const color = ok ? 'var(--text-success)' : worse ? 'var(--text-danger)' : 'var(--border-accent)';
+      const right = hb ? diff > 0 : diff > 0;
+      const bandW = Math.min(50, tol / maxDev * 50);
+      const dTxt = s.unit === 'time' ? (diff > 0 ? '+' : diff < 0 ? '−' : '±') + Math.abs(Math.round(diff)) + '초' : (diff > 0 ? '+' : diff < 0 ? '−' : '±') + Math.abs(Math.round(diff * 10) / 10);
+      return '<div style="display:grid; grid-template-columns:36px minmax(0,1fr) 84px; align-items:center; gap:10px;">'
+        + '<span class="muted" style="font-size:12px;">' + (i + 1) + '세트</span>'
+        + '<div style="position:relative; height:10px; border-radius:5px; background:var(--surface-2); overflow:hidden;">'
+        + '<span style="position:absolute; top:0; bottom:0; left:' + (50 - bandW) + '%; width:' + (bandW * 2) + '%; background:var(--text-success); opacity:0.1;"></span>'
+        + '<span style="position:absolute; top:0; bottom:0; left:50%; width:1.5px; margin-left:-0.75px; background:var(--border-strong);"></span>'
+        + '<span style="position:absolute; top:2px; bottom:2px; ' + (right ? 'left:50%;' : 'right:50%;') + ' width:' + w + '%; border-radius:3px; background:' + color + ';"></span>'
+        + '</div>'
+        + '<span style="font-size:12px; text-align:right; font-variant-numeric:tabular-nums;"><strong style="font-weight:600;">' + (s.unit === 'time' ? fmtClock(Math.round(x)) : Math.round(x)) + '</strong> <span style="color:' + (ok ? 'var(--text-success)' : 'var(--text-muted)') + '; font-size:11px;">' + (ok ? '✓' : dTxt) + '</span></span>'
+        + '</div>';
+    }).join('') + '</div>';
+    if(s.pat) html += '<div style="padding:10px 12px; border-radius:var(--radius); background:var(--surface-2); margin:0 0 12px;"><div style="font-weight:600; font-size:13px;">' + s.pat.label + (s.speed ? ' · ' + ({ fast: hb ? '기준보다 많아요' : '기준보다 빨라요', similar: '기준과 비슷해요', slow: hb ? '기준보다 적어요' : '기준보다 느려요' }[s.speed]) : '') + '</div><div style="font-size:13px; line-height:1.5; margin-top:2px;">' + paceCoach(s.pat.key, s.speed) + '</div></div>';
+    else html += '<div class="muted" style="font-size:13px; margin:0 0 12px;">세트가 3개 이상이면 패턴을 판정해요.</div>';
+    const line = (k, v) => '<div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin:0 0 6px;"><span class="muted">' + k + '</span><span style="text-align:right;">' + v + '</span></div>';
+    const v = vals.filter(x => x != null);
+    if(v.length >= 2) html += line('평균', '<strong style="font-weight:600;">' + fmtV(s, v.reduce((a, b) => a + b, 0) / v.length) + '</strong>');
+    if(s.unit === 'time' && s.pat){
+      let base = s.ref ? 1 / s.ref[0] : v.slice(1).reduce((a, b) => a + b, 0) / (v.length - 1);
+      let note = s.ref ? '지난 기록 기준' : '참고용 · 이번 2세트 이후 평균';
+      if(s.pat.key === 'even' && s.hits && s.hits.hit / s.hits.n >= 0.8){ base *= 0.985; note = '목표를 지켜서 1.5% 당김'; }
+      html += line('다음 목표', '<strong style="font-weight:600;">' + fmtClock(Math.round(base)) + '</strong> <span class="muted" style="font-size:12px;">' + note + '</span>');
+    } else if(s.machines && s.machines.length > 1 && Array.isArray(s.cals)){
+      const per = s.machines.map((m, j) => { const c = s.cals.slice(1).map(rr => Array.isArray(rr) ? rr[j] : null).filter(x => x != null); return m + ' ' + (c.length ? Math.round(c.reduce((a, b) => a + b, 0) / c.length) : '-'); }).join(' · ');
+      html += line('다음 목표', '<strong style="font-weight:600;">' + per + ' cal</strong>');
+    } else if(s.pat && v.length >= 2){
+      html += line('다음 목표', '<strong style="font-weight:600;">세트당 ' + Math.round(v.slice(1).reduce((a, b) => a + b, 0) / (v.length - 1)) + (s.unit === 'cal' ? ' cal' : '개') + '</strong> <span class="muted" style="font-size:12px;">이번 2세트 이후 평균</span>');
+    }
+    if(s.hits) html += line('목표 ' + fmtClock(s.hits.t), '<strong style="font-weight:600;">' + s.hits.hit + '/' + s.hits.n + '</strong> 세트 안에 들어왔어요');
+    const same = list.filter(x => x.kind === s.kind && x.date <= s.date).slice(0, 4).reverse();
+    if(same.length >= 2){
+      const avgs = same.map(x => { const vv = x.vals.filter(y => y != null); return vv.length ? vv.reduce((a, b) => a + b, 0) / vv.length : null; });
+      html += '<div style="margin:10px 0 0; padding-top:10px; border-top:0.5px solid var(--border);"><div class="muted" style="font-size:12px; margin-bottom:8px;">최근 ' + same.length + '번 평균</div><div style="display:flex; justify-content:space-between; gap:6px;">' + same.map((x, i) => '<div style="flex:1; text-align:center; font-size:12px;"><div style="width:8px; height:8px; border-radius:50%; margin:0 auto 4px; background:' + (x === s ? 'var(--border-accent)' : 'var(--border-strong)') + ';"></div><div style="font-weight:' + (x === s ? '600' : '400') + ';">' + fmtV(x, avgs[i]) + '</div><div class="muted">' + shortD(x.date) + '</div></div>').join('') + '</div></div>';
+    }
+    if(s.machines && s.machines.length > 1 && Array.isArray(s.cals)) html += '<div class="muted" style="font-size:12px; margin-top:8px;">' + s.machines.join('·') + '는 따로 계산해요. 세트별 ' + s.cals.map((rr, i) => (i + 1) + ': ' + (Array.isArray(rr) ? rr.map(x => x ?? '-').join('/') : rr)).join(' · ') + '</div>';
+    if(s.kind === 'igug' && s.stops && s.items[0]){ const mv = igugMoves(s.items[0]); const st = s.stops.map((x, i) => x != null && x !== '' ? (i + 1) + ': ' + (x === 'all' ? '전부 완료' : (mv[+x] ? limName(mv[+x].label) : '')) : '').filter(Boolean); if(st.length) html += '<div class="muted" style="font-size:12px; margin-top:8px;">멈춘 동작 ' + escapeHtml(st.join(' · ')) + '</div>'; }
+  }
+  if(s.md && s.md.lim) html += '<div style="margin-top:10px; font-size:13px;"><span class="muted">아쉬운 동작</span> ' + escapeHtml(s.md.lim) + '</div>';
+  if(s.md && s.md.notes) html += '<div style="margin-top:6px;"><span class="tag scaled" style="white-space:normal;">※ ' + escapeHtml(s.md.notes) + '</span></div>';
+  if(s.items && s.items.length) html += '<button type="button" class="pres-toggle" style="margin-top:12px; height:auto; padding:0; border:none; background:none; box-shadow:none; font-size:12px; color:var(--border-accent);">운동 내용 보기</button><div class="pres-body" style="display:none;"><div style="padding-top:8px;">' + s.items.map(it => (s.items.length > 1 ? '<div style="font-weight:500; margin-top:6px;">' + escapeHtml(it.name) + '</div>' : '') + '<div class="muted">' + formatPrescribed(it.prescribed) + '</div>').join('') + '</div></div>';
+  return '<div style="margin:8px 0 4px; padding:14px; border-radius:12px; background:var(--surface-1); font-size:13px; line-height:1.55;">' + html + '</div>';
+}
+function progCard(inner){ return '<div class="card" style="margin:0 0 12px;">' + inner + '</div>'; }
+function progHead(eyebrow, title, sub){ return '<p class="eyebrow" style="margin:0 0 4px;">' + eyebrow + '</p><h3 style="font-size:17px; font-weight:500; margin:0 0 ' + (sub ? '4px' : '12px') + ';">' + title + '</h3>' + (sub ? '<p class="muted" style="font-size:13px; margin:0 0 12px;">' + sub + '</p>' : ''); }
+
+async function renderProgress(){
+  const el = document.getElementById('board-content');
+  const name = localStorage.getItem('bruteLogName') || '';
+  if(!name){ el.innerHTML = progCard('<p class="muted" style="margin:0;">기록 탭에서 Profile 이름을 먼저 정해주세요.</p>'); return; }
+  el.innerHTML = '<p class="muted">불러오고 있어요...</p>';
+  const { data: allRecs, error } = await sb.from('records').select('*').eq('name', name).order('date').order('id');
+  if(error){ el.innerHTML = '<p class="status err">' + escapeHtml(error.message) + '</p>'; return; }
+  if(!allRecs || !allRecs.length){
+    const setting = await getProfileSetting(name);
+    el.innerHTML = progCard('<p class="muted" style="margin:0;">' + (setting && setting.is_private ? '비공개 프로필이에요. 기록 탭에서 PIN을 넣으면 보여요.' : '아직 기록이 없어요.') + '</p>');
+    return;
+  }
+  const dates = [...new Set(allRecs.map(r => r.date))];
+  const { data: progs } = await sb.from('programs').select('date, items').in('date', dates);
+  const progByDate = {};
+  (progs || []).forEach(p => progByDate[p.date] = p.items || []);
+  const unit = getPreferredUnit();
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const since = PROGRESS_RANGE === '4w' ? iso(new Date(today.getTime() - 27 * 864e5)) : '0000';
+  const recs = allRecs.filter(r => r.date >= since);
+  const pd = r => parsePersonalDetail(r) || {};
+  const isRound = r => / - \d+R$/.test(r.item_name);
+  const baseOf = n => String(n).replace(/ - \d+R$/, '');
+  const itemOf = (date, n) => (progByDate[date] || []).find(it => it.name === n);
+
+  // ---- PR events (all time, so first-in-range can still be a PR) ----
+  const best = {}, prEvents = [];
+  allRecs.forEach(r=>{
+    if(r.skipped || isRound(r) || / · Total$/.test(r.item_name) || / - /.test(r.item_name)) return;
+    const d = pd(r);
+    let key = null, val = null, label = '', show = '';
+    if(r.type === 'weight'){ val = parseFloat(r.value); label = d.rm != null ? rmLabel(String(d.rm)) : ''; key = r.item_name + '|w' + label; show = fmtWeightRec(r, unit); }
+    else if(r.type === 'distance'){ const m = String(r.value).match(/^([\d.]+)\s*(cm|m|ft)$/); if(m){ val = +m[1] * (m[2] === 'm' ? 100 : m[2] === 'ft' ? 30.48 : 1); key = r.item_name + '|d'; show = r.value; } }
+    else if(r.type === 'calories' || (r.type === 'reps' && !d.igug)){ val = parseFloat(r.value); key = r.item_name + '|' + r.type; show = r.value; }
+    if(key == null || isNaN(val)) return;
+    const prev = best[key];
+    if(prev && val > prev.val) prEvents.push({ date: r.date, item: r.item_name, label, show, prevShow: prev.show, prevDate: prev.date });
+    if(!prev || val > prev.val) best[key] = { val, show, date: r.date };
+  });
+
+  // ---- week summary ----
+  const dow = (today.getDay() + 6) % 7;
+  const weekStart = iso(new Date(today.getTime() - dow * 864e5));
+  const weekRecs = allRecs.filter(r => r.date >= weekStart);
+  const weekDays = new Set(weekRecs.filter(r => !r.skipped).map(r => r.date)).size;
+  const weekSkips = weekRecs.filter(r => r.skipped && !isRound(r)).length;
+  const weekPRs = prEvents.filter(e => e.date >= weekStart);
+
+  el.innerHTML = '';
+  const top = document.createElement('div');
+  top.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 12px;';
+  top.innerHTML = '<span class="muted" style="font-size:13px;">' + escapeHtml(name) + '</span><div style="display:flex; gap:4px; padding:3px; border-radius:999px; background:var(--surface-2); border:0.5px solid var(--border);">'
+    + ['4w', 'all'].map(k => '<button type="button" data-r="' + k + '" style="height:28px; font-size:13px; padding:0 12px; border-radius:999px; border:none; box-shadow:none; background:' + (PROGRESS_RANGE === k ? 'var(--surface-1)' : 'transparent') + '; font-weight:' + (PROGRESS_RANGE === k ? '600' : '400') + ';">' + (k === '4w' ? '최근 4주' : '전체') + '</button>').join('') + '</div>';
+  top.querySelectorAll('button').forEach(b => b.onclick = ()=>{ PROGRESS_RANGE = b.dataset.r; renderProgress(); });
+  el.appendChild(top);
+
+  const sum = document.createElement('div');
+  sum.className = 'card';
+  sum.style.margin = '0 0 12px';
+  sum.innerHTML = '<p class="eyebrow" style="margin:0 0 8px;">THIS WEEK</p>'
+    + '<div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px;">'
+    + '<div><div style="font-size:22px; font-weight:600;">' + weekDays + '</div><div class="muted" style="font-size:13px;">운동한 날</div></div>'
+    + '<button type="button" class="pr-btn" style="height:auto; padding:0; border:none; background:none; box-shadow:none; text-align:left;"><div style="font-size:22px; font-weight:600; color:' + (weekPRs.length ? 'var(--border-accent)' : 'inherit') + ';">' + weekPRs.length + '</div><div class="muted" style="font-size:13px;">PR 갱신' + (weekPRs.length ? ' ▾' : '') + '</div></button>'
+    + '<div><div style="font-size:22px; font-weight:600;">' + weekSkips + '</div><div class="muted" style="font-size:13px;">생략</div></div>'
+    + '</div><div class="pr-list" style="display:none;"></div>';
+  const prList = sum.querySelector('.pr-list');
+  prList.innerHTML = '<div style="margin-top:12px; border-top:0.5px solid var(--border); padding-top:8px;">' + weekPRs.map(e => '<div style="display:flex; justify-content:space-between; gap:8px; padding:6px 0; font-size:14px;"><span style="min-width:0;">' + escapeHtml(e.item) + (e.label ? ' <span class="muted">' + e.label + '</span>' : '') + '</span><span style="flex-shrink:0; text-align:right;"><strong style="font-weight:600;">' + escapeHtml(e.show) + '</strong> <span class="muted" style="font-size:12px;">이전 ' + escapeHtml(e.prevShow) + ' · ' + shortD(e.prevDate) + '</span></span></div>').join('') + '</div>';
+  sum.querySelector('.pr-btn').onclick = ()=>{ if(weekPRs.length) slideToggle(prList); };
+  el.appendChild(sum);
+
+  // ---- pace sessions ----
+  const sessions = [];
+  const byDate = {};
+  recs.forEach(r => (byDate[r.date] = byDate[r.date] || []).push(r));
+  const roundNoOf = r => +r.item_name.match(/(\d+)R$/)[1];
+  Object.entries(byDate).forEach(([date, list])=>{
+    const prog = progByDate[date] || [];
+    list.filter(r => !r.skipped && !isRound(r)).forEach(main=>{
+      const md = pd(main);
+      const it = itemOf(date, main.item_name);
+      const rounds = list.filter(r => isRound(r) && baseOf(r.item_name) === main.item_name).sort((a, b) => roundNoOf(a) - roundNoOf(b));
+      const head = it ? (splitPrescribedLines(it.prescribed).filter(Boolean)[0] || '').replace(/:$/, '') : '';
+      if(rounds.length && main.type === 'for_time' && rounds.some(r => pd(r).clock != null)){
+        const rest = it ? parseRestSec(it.prescribed) : 0;
+        sessions.push({ date, kind: 'sets', unit: 'time', compare: rest > 0, group: wdOf(date) + ' · ' + (head || rounds.length + ' Sets'), name: main.item_name, vals: rounds.map(r => clockSec(r.value)), clocks: rounds.map(r => pd(r).clock), main, md, items: it ? [it] : [] });
+      } else if(rounds.length && md.igug){
+        sessions.push({ date, kind: 'igug', unit: 'reps', compare: true, group: wdOf(date) + ' · ' + (head || rounds.length + ' Sets') + ' · I GO U GO', name: main.item_name, vals: rounds.map(r => parseFloat(r.value)), stops: rounds.map(r => (pd(r).ig || {}).stop), main, md, items: it ? [it] : [] });
+      } else if(main.type === 'calories' && Array.isArray(md.cals) && md.cals.length >= 2){
+        const per = md.cals.map(row => { const a = Array.isArray(row) ? row : [row]; const n = a.filter(x => x != null); return n.length ? n.reduce((s, x) => s + x, 0) : null; });
+        sessions.push({ date, kind: 'cal', unit: 'cal', compare: true, group: wdOf(date) + ' · ' + main.item_name, name: main.item_name, vals: per, machines: md.machines || [], cals: md.cals, main, md, items: it ? [it] : [] });
+      } else if(/ · Total$/.test(main.item_name)){
+        const items = prog.filter(x => normSec(x.section) === normSec(main.section) && x.type === 'for_time');
+        const parts = items.map(x => list.find(r => r.item_name === x.name && normSec(r.section) === normSec(main.section))).filter(Boolean);
+        if(parts.length) sessions.push({ date, kind: 'parts', unit: 'time', compare: false, group: wdOf(date) + ' · ' + main.item_name.replace(/ · Total$/, ''), name: main.item_name, vals: parts.map(r => r.skipped ? null : clockSec(r.value)), partRecs: parts, main, md, items });
+      }
+    });
+    // 라운드별 개수 메트콘 (예: 금 AMRAP 세트별 칼로리) — 대표 기록 없이 라운드만 있음
+    prog.filter(x => x.type === 'amrap_by_round' && /metcon/i.test(normSec(x.section))).forEach(x=>{
+      const rounds = list.filter(r => isRound(r) && baseOf(r.item_name) === x.name && !r.skipped).sort((a, b) => roundNoOf(a) - roundNoOf(b));
+      if(rounds.length < 2) return;
+      sessions.push({ date, kind: 'cal', unit: 'reps', compare: true, group: wdOf(date) + ' · ' + x.name, name: x.name, vals: rounds.map(r => parseFloat(r.value)), main: { value: '' }, md: {}, items: [x] });
+    });
+  });
+
+  const fmtV = (s, x) => x == null ? '-' : (s.unit === 'time' ? fmtClock(Math.round(x)) : (Math.round(x * 10) / 10) + (s.unit === 'cal' ? ' cal' : '개'));
+  const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
+  const median = a => { const b = [...a].sort((x, y) => x - y); return b[Math.floor(b.length / 2)]; };
+  const rateOf = s => {
+    if(s.machines && s.machines.length > 1 && Array.isArray(s.cals)){
+      const cols = s.machines.map((_, j) => s.cals.map(r => Array.isArray(r) ? r[j] : null));
+      const means = cols.map(c => { const v = c.filter(x => x != null); return v.length ? mean(v) : null; });
+      return s.cals.map((r, i) => { const v = cols.map((c, j) => (c[i] != null && means[j]) ? c[i] / means[j] : null).filter(x => x != null); return v.length ? mean(v) : null; });
+    }
+    return paceRates(s.vals, s.unit !== 'time');
+  };
+  const levelOf = s => {
+    if(s.machines && s.machines.length > 1 && Array.isArray(s.cals)) return s.machines.map((_, j) => { const v = s.cals.slice(1).map(r => Array.isArray(r) ? r[j] : null).filter(x => x != null); return v.length ? mean(v) : null; });
+    const r = paceRates(s.vals, s.unit !== 'time').slice(1).filter(x => x != null);
+    return [r.length ? mean(r) : null];
+  };
+  const deltaOf = (a, refs) => { const d = a.map((x, i) => (x != null && refs[i]) ? x / refs[i] - 1 : null).filter(x => x != null); return d.length ? mean(d) : null; };
+  const sameIg = (a, b) => (a.kind === 'igug') === (b.kind === 'igug');
+
+  const paceCard = document.createElement('div');
+  paceCard.className = 'card';
+  paceCard.style.margin = '0 0 12px';
+  paceCard.innerHTML = progHead('PACE', '페이스');
+  if(!sessions.length) paceCard.insertAdjacentHTML('beforeend', '<p class="muted" style="font-size:14px; margin:0;">세트 반복 메트콘을 Finish로, 칼로리 인터벌을 세트별로 기록하면 여기 쌓여요.</p>');
+  const groups = {};
+  sessions.forEach(s => (groups[s.group] = groups[s.group] || []).push(s));
+  Object.entries(groups).forEach(([g, list])=>{
+    list.sort((a, b) => a.date.localeCompare(b.date));
+    list.forEach((s, i)=>{
+      s.pat = s.kind === 'parts' ? null : pacePattern(s.vals, s.unit !== 'time', rateOf(s));
+      s.level = s.kind === 'parts' ? null : levelOf(s);
+      const prev = list.slice(0, i).filter(x => sameIg(x, s) && !paceChanged(s.items[0], x.items[0]));
+      s.changedFromLast = i > 0 && paceChanged(s.items[0], list[i - 1].items[0]);
+      s.speed = null; s.delta = null; s.ref = null;
+      if(s.compare && s.level && prev.length >= 3){
+        const last3 = prev.slice(-3);
+        s.ref = s.level.map((_, j) => median(last3.map(x => x.level[j]).filter(v => v != null)));
+        s.delta = deltaOf(s.level, s.ref);
+        if(s.delta != null) s.speed = s.delta >= 0.02 ? 'fast' : s.delta <= -0.02 ? 'slow' : 'similar';
+        const ds = prev.map(x => deltaOf(x.level, s.ref)).filter(x => x != null);
+        const noise = prev.length >= 4 ? Math.sqrt(mean(ds.map(d => d * d))) : 0.06;
+        const recent3 = list.slice(Math.max(0, i - 2), i + 1).map(x => x.delta);
+        s.improved = (s.delta != null && s.delta >= 2 * noise) || (recent3.length === 3 && recent3.every(d => d != null && d > 0));
+      }
+      const t = s.md && s.md.target;
+      if(t && s.kind === 'sets'){ const v = s.vals.filter(x => x != null); s.hits = { t, hit: v.filter(x => Math.abs(x - t) <= paceTol(t, 'time')).length, n: v.length }; }
+    });
+    list.reverse();
+    const box = document.createElement('div');
+    box.style.cssText = 'padding:14px 0 8px; border-top:0.5px solid var(--border);';
+    box.innerHTML = '<div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin:0 0 6px;"><span style="font-size:14px; font-weight:600;">' + escapeHtml(g.split(' · ').slice(0, 2).join(' · ')) + '</span><span class="muted" style="font-size:12px;">' + (/I GO U GO/.test(g) ? 'I GO U GO · ' : '') + list.length + '번</span></div>';
+    const hbG = list[0].unit !== 'time';
+    const verdict = s => {
+      if(s.kind === 'parts') return s.main.value && s.main.value !== 'CAP' ? '캡 안에 끝냄 · ' + escapeHtml(s.main.value) : '타임캡 걸림';
+      if(!s.pat) return '3세트부터 판정해요';
+      const st = s.vals.filter(x => x != null);
+      let num;
+      if(s.speed){
+        const pct = Math.abs(Math.round(s.delta * 100));
+        num = s.speed === 'similar' ? '기준과 비슷해요' : '기준보다 ' + pct + '% ' + (s.speed === 'fast' ? (hbG ? '많아요' : '빨라요') : (hbG ? '적어요' : '느려요'));
+      } else num = '평균 ' + fmtV(s, mean(st));
+      return s.pat.label + ' · ' + num;
+    };
+    const tone = s => !s.pat ? 'var(--text-secondary)' : (s.pat.key === 'even' && s.speed !== 'slow') || s.pat.key === 'negative' ? 'var(--text-success)' : s.pat.key === 'allout' || s.pat.key === 'positive' ? 'var(--text-warning)' : 'var(--text-secondary)';
+    list.forEach(s=>{
+      const row = document.createElement('div');
+      row.style.cssText = 'cursor:pointer; padding:8px 0; -webkit-tap-highlight-color:transparent;';
+      row.innerHTML = '<div style="display:grid; grid-template-columns:40px auto minmax(0,1fr) 12px; align-items:center; gap:12px;"><span class="muted" style="font-size:13px;">' + shortD(s.date) + '</span>' + bars(s.vals, hbG) + '<span style="font-size:13px; text-align:right; color:' + tone(s) + ';">' + verdict(s) + '</span><span class="pace-chev muted" style="font-size:14px; display:inline-block; transition:transform 300ms cubic-bezier(0.32,0.72,0,1);">›</span></div>'
+        + '<div class="pace-detail" style="display:none;"></div>';
+      const det = row.querySelector('.pace-detail');
+      row.onclick = e => {
+        if(e.target.closest('.pres-toggle')) return;
+        if(!det.dataset.built){ det.innerHTML = paceDetailHtml(s, list, fmtV); det.dataset.built = '1';
+          const pt = det.querySelector('.pres-toggle');
+          if(pt) pt.onclick = ev => { ev.stopPropagation(); const b = det.querySelector('.pres-body'); slideToggle(b); pt.textContent = b.dataset.open === '1' ? '운동 내용 접기' : '운동 내용 보기'; };
+        }
+        slideToggle(det);
+        row.querySelector('.pace-chev').style.transform = det.dataset.open === '1' ? 'rotate(90deg)' : 'none';
+      };
+      box.appendChild(row);
+    });
+    const last = list[0];
+    const cnt = list.filter(x => sameIg(x, last)).length;
+    let foot = '';
+    if(last.improved) foot = '같은 형식에서 기준보다 꾸준히 좋아지고 있어요.';
+    else if(last.compare && last.kind !== 'parts' && cnt < 4) foot = '같은 형식 기록이 ' + (4 - cnt) + '번 더 쌓이면 내 기준 페이스와 비교해 드릴게요.';
+    else if(last.changedFromLast && last.compare) foot = '구성이 바뀐 날이라 지난 기록과 직접 비교하지 않았어요.';
+    if(foot) box.insertAdjacentHTML('beforeend', '<p class="muted" style="font-size:12px; margin:4px 0 0;">' + foot + '</p>');
+    paceCard.appendChild(box);
+  });
+  el.appendChild(paceCard);
+
+  // ---- limiter ----
+  const lim = {};
+  const addLim = (n, src)=>{ if(!n) return; (lim[n] = lim[n] || { n, c: 0, src: new Set() }).c++; lim[n].src.add(src); };
+  sessions.forEach(s=>{
+    if(s.md.lim) addLim(s.md.lim, '직접 선택');
+    if(s.kind === 'igug' && s.items[0]){
+      const mv = igugMoves(s.items[0]);
+      s.stops.forEach(st => { if(st !== '' && st != null && st !== 'all' && mv[+st]) addLim(limName(mv[+st].label), 'I GO U GO'); });
+    }
+    if(s.kind === 'parts') s.partRecs.forEach(r => { if(pd(r).unfin) addLim(r.item_name, '못 끝낸 파트'); });
+  });
+  const limCard = document.createElement('div');
+  limCard.className = 'card';
+  limCard.style.margin = '0 0 12px';
+  limCard.innerHTML = progHead('WEAKNESS', '약점', '기록할 때 고른 아쉬운 동작, I GO U GO에서 멈춘 동작, 못 끝낸 파트를 모아요.');
+  const limList = Object.values(lim).filter(x => x.c >= 2).sort((a, b) => b.c - a.c);
+  if(!limList.length) limCard.insertAdjacentHTML('beforeend', '<p class="muted" style="font-size:14px; margin:0;">같은 동작이 2번 이상 쌓이면 보여드려요. 메트콘을 기록할 때 아쉬운 동작을 하나 골라주세요.</p>');
+  else {
+    const cats = {};
+    limList.forEach(x => { const c = mvCat(x.n); (cats[c] = cats[c] || { c: 0, items: [] }).c += x.c; cats[c].items.push(x); });
+    const mx = Math.max(...Object.values(cats).map(x => x.c));
+    limCard.insertAdjacentHTML('beforeend', '<p style="font-size:15px; margin:0 0 10px;">최근 자주 무너진 동작 <strong style="font-weight:600;">' + escapeHtml(limList[0].n) + '</strong> <span class="muted">(' + limList[0].c + '번)</span></p>'
+      + Object.entries(cats).sort((a, b) => b[1].c - a[1].c).map(([c, x]) => '<div style="display:grid; grid-template-columns:76px minmax(0,1fr) 24px; align-items:center; gap:8px; margin:0 0 4px;"><span style="font-size:13px;">' + c + '</span><span style="height:8px; border-radius:4px; background:var(--border-accent); width:' + Math.max(6, Math.round(x.c / mx * 100)) + '%;"></span><span class="muted" style="font-size:13px; text-align:right;">' + x.c + '</span></div><div class="muted" style="font-size:12px; margin:0 0 8px 84px;">' + x.items.map(i => escapeHtml(i.n) + ' ' + i.c).join(' · ') + '</div>').join(''));
+  }
+  el.appendChild(limCard);
+
+  // ---- lift trends ----
+  const lifts = {};
+  recs.forEach(r=>{
+    if(r.skipped || r.type !== 'weight' || / - /.test(r.item_name)) return;
+    (lifts[r.item_name] = lifts[r.item_name] || []).push(r);
+  });
+  const liftCard = document.createElement('div');
+  liftCard.className = 'card';
+  liftCard.style.margin = '0 0 12px';
+  liftCard.innerHTML = progHead('STRENGTH', '리프팅 추세', 'RM 기록은 추정 1RM으로 맞춰서 비교해요. 작업 무게·RPE 기록은 처방과 같이 보여줘요.');
+  const liftEntries = Object.entries(lifts).filter(([, l]) => l.length >= 1).sort((a, b) => b[1].length - a[1].length);
+  if(!liftEntries.length) liftCard.insertAdjacentHTML('beforeend', '<p class="muted" style="font-size:14px; margin:0;">무게 기록이 아직 없어요.</p>');
+  liftEntries.forEach(([n, list])=>{
+    const withRm = list.filter(r => { const k = pd(r).rm; return typeof k === 'number' && k >= 1 && k <= 5; });
+    const useRm = withRm.length > 0;
+    const pts = (useRm ? withRm : list).map(r => { const w = parseFloat(r.value) || 0, k = pd(r).rm; return { r, v: useRm ? (k === 1 ? w : w * (1 + k / 30)) : w }; });
+    const vals = pts.map(x => x.v);
+    const last = vals[vals.length - 1], prev = vals[vals.length - 2], bestV = Math.max(...vals);
+    let status = '기록 1번', color = 'var(--text-muted)';
+    if(vals.length >= 2){
+      const lastBestDate = pts[vals.lastIndexOf(bestV)].r.date;
+      const days = (new Date(pts[pts.length - 1].r.date) - new Date(lastBestDate)) / 864e5;
+      if(last >= bestV && last > prev){ status = '상승'; color = 'var(--text-success)'; }
+      else if(last < bestV * 0.95){ status = '하락'; color = 'var(--text-danger)'; }
+      else if(days >= 21){ status = '정체'; color = 'var(--text-warning)'; }
+      else status = '유지';
+    }
+    const row = document.createElement('div');
+    row.style.cssText = 'padding:10px 0; border-top:0.5px solid var(--border); cursor:pointer;';
+    row.innerHTML = '<div style="display:grid; grid-template-columns:minmax(0,1fr) 72px auto; align-items:center; gap:10px;">'
+      + '<div style="min-width:0;"><div style="font-size:15px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHtml(n) + '</div><div class="muted" style="font-size:12px;">' + (useRm ? '추정 1RM ' : '최근 ') + (isAddedWeight(n) ? '+' : '') + formatWeight(last, unit) + '</div></div>'
+      + (spark(vals, 72, 24, true) || '<span></span>')
+      + '<span style="font-size:12px; font-weight:600; color:' + color + '; text-align:right;">' + status + '</span></div>'
+      + '<div class="lift-detail" style="display:none;"></div>';
+    const det = row.querySelector('.lift-detail');
+    row.onclick = ()=>{
+      if(!det.dataset.built){
+        det.dataset.built = '1';
+        det.innerHTML = '<div style="padding-top:8px; font-size:13px; line-height:1.6;">' + list.slice().reverse().map(r => {
+          const k = pd(r).rm;
+          const it = itemOf(r.date, r.item_name);
+          const pres = it ? splitPrescribedLines(it.prescribed).filter(Boolean)[0] || '' : '';
+          return '<div style="display:flex; justify-content:space-between; gap:8px;"><span class="muted">' + shortD(r.date) + ' ' + wdOf(r.date) + '</span><span style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" class="muted">' + escapeHtml(k != null ? rmLabel(String(k)) : pres) + '</span><strong style="font-weight:600;">' + fmtWeightRec(r, unit) + '</strong></div>';
+        }).join('') + '</div>';
+      }
+      slideToggle(det);
+    };
+    liftCard.appendChild(row);
+  });
+  // 리프팅 추세는 숨김 (PR 갱신과 프로필 RM 기록으로 대신)
+
+  // ---- same prescription ----
+  const same = [];
+  const byItem = {};
+  recs.forEach(r => { if(!r.skipped && !isRound(r) && ['distance', 'reps', 'calories', 'weight'].includes(r.type)) (byItem[r.item_name] = byItem[r.item_name] || []).push(r); });
+  Object.entries(byItem).forEach(([n, list])=>{
+    if(list.length < 2) return;
+    const a = list[list.length - 2], b = list[list.length - 1];
+    const ia = itemOf(a.date, n), ib = itemOf(b.date, n);
+    if(!ia || !ib || String(ia.prescribed).trim() !== String(ib.prescribed).trim()) return;
+    if(pd(a).igug || pd(b).igug) return;
+    const num = r => r.type === 'distance' ? (() => { const m = String(r.value).match(/^([\d.]+)\s*(cm|m|ft)$/); return m ? +m[1] * (m[2] === 'm' ? 100 : m[2] === 'ft' ? 30.48 : 1) : NaN; })() : parseFloat(r.value);
+    const da = num(a), db = num(b);
+    if(isNaN(da) || isNaN(db)) return;
+    const show = r => r.type === 'weight' ? fmtWeightRec(r, unit) : escapeHtml(r.value);
+    const diff = db - da;
+    same.push('<div style="display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-top:0.5px solid var(--border); font-size:14px;"><span style="min-width:0;">' + escapeHtml(n) + '</span><span style="flex-shrink:0;"><span class="muted">' + show(a) + ' →</span> <strong style="font-weight:600;">' + show(b) + '</strong> <span style="font-size:12px; color:' + (diff > 0 ? 'var(--text-success)' : diff < 0 ? 'var(--text-danger)' : 'var(--text-muted)') + ';">' + (diff > 0 ? '▲' : diff < 0 ? '▼' : '—') + '</span></span></div>');
+  });
+  if(same.length){
+    const sc = document.createElement('div');
+    sc.className = 'card';
+    sc.style.margin = '0 0 12px';
+    sc.innerHTML = progHead('SAME WORKOUT', '같은 처방 비교', '처방이 완전히 같았던 지난번과 이번을 비교해요.') + same.join('');
+    el.appendChild(sc);
+  }
+}
+
 async function renderBoard(){
   const el = document.getElementById('board-content');
   el.innerHTML = '<p class="muted">불러오고 있어요...</p>';
@@ -2656,11 +3355,13 @@ async function canViewProfile(name, setting){
   const { data, error } = await sb.rpc('can_access', { p_name: name });
   return !error && data === true;
 }
+function isWeakPin(p){ return /^(\d)\1*$/.test(p) || '0123456789'.includes(p) || '9876543210'.includes(p); }
 function pinErrorMessage(res){
   if(!res) return '확인에 실패했어요. 잠시 뒤에 다시 시도해주세요.';
   if(res.error === 'LOCKED') return 'PIN을 여러 번 틀려서 잠시 잠겼어요. 나중에 다시 시도해주세요.';
   if(res.error === 'WRONG_PIN') return `PIN이 맞지 않아요. (남은 기회 ${res.left}번)`;
-  if(res.error === 'BAD_PIN') return 'PIN은 숫자 4자리로 입력해주세요.';
+  if(res.error === 'BAD_PIN') return 'PIN은 숫자 4~6자리로 입력해주세요.';
+  if(res.error === 'WEAK_PIN') return '0000, 1234처럼 쉬운 번호는 쓸 수 없어요.';
   if(res.error === 'BAD_NAME') return '이 이름은 비공개로 설정할 수 없어요.';
   if(res.error === 'NO_ACCESS') return '권한이 없어요. PIN으로 먼저 열어주세요.';
   return '확인에 실패했어요.';
@@ -2683,7 +3384,7 @@ function renderLockedProfile(el, name){
     <h2 style="font-size:20px; font-weight:500; margin:0;"></h2>
     <p class="muted" style="margin:0 0 14px;">비공개 프로필이에요. 본인이라면 PIN을 입력해주세요.</p>
     <div class="row" style="justify-content:center; margin-bottom:0;">
-      <input type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="PIN 4자리" style="width:120px; text-align:center; letter-spacing:0.3em;" />
+      <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="PIN 4~6자리" style="width:120px; text-align:center; letter-spacing:0.3em;" />
       <button class="primary">열기</button>
     </div>
     <p class="status err" style="margin:8px 0 0; min-height:1.6em;"></p>`;
@@ -2728,8 +3429,8 @@ function buildPrivacyPanel(name, setting){
       </div>
       <div class="pin-change-wrap hidden" style="margin-top:12px;">
         <div class="row" style="margin-bottom:0;">
-          <input type="password" inputmode="numeric" maxlength="4" autocomplete="off" class="pin-old" placeholder="지금 PIN" style="width:110px; text-align:center; letter-spacing:0.2em;" />
-          <input type="password" inputmode="numeric" maxlength="4" autocomplete="off" class="pin-new" placeholder="새 PIN" style="width:110px; text-align:center; letter-spacing:0.2em;" />
+          <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" class="pin-old" placeholder="지금 PIN" style="width:110px; text-align:center; letter-spacing:0.2em;" />
+          <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" class="pin-new" placeholder="새 PIN" style="width:110px; text-align:center; letter-spacing:0.2em;" />
           <button class="primary" data-act="change">변경</button>
         </div>
       </div>
@@ -2738,9 +3439,9 @@ function buildPrivacyPanel(name, setting){
     panel.innerHTML = `
       <p class="eyebrow">PRIVACY</p>
       <p style="margin:0 0 4px; font-weight:500;">기록 비공개로 바꾸기</p>
-      <p class="muted" style="margin:0 0 12px;">비공개로 바꾸면 PIN이 없는 사람은 이 프로필, 주요 리프트, 전체 기록(순위)에서 기록을 볼 수 없어요. PIN 4자리를 정해주세요. 전에 정한 PIN이 있다면 그 PIN을 입력해주세요. 은행이나 휴대폰 비밀번호와 같은 숫자는 피해주세요.</p>
+      <p class="muted" style="margin:0 0 12px;">비공개로 바꾸면 PIN이 없는 사람은 이 프로필, 주요 리프트, 전체 기록(순위)에서 기록을 볼 수 없어요. PIN 4~6자리를 정해주세요. 전에 정한 PIN이 있다면 그 PIN을 입력해주세요. 은행이나 휴대폰 비밀번호와 같은 숫자는 피해주세요.</p>
       <div class="row" style="margin-bottom:0;">
-        <input type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="PIN 4자리" style="width:120px; text-align:center; letter-spacing:0.3em;" />
+        <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="PIN 4~6자리" style="width:120px; text-align:center; letter-spacing:0.3em;" />
         <button class="primary" data-act="private">비공개로 바꾸기</button>
       </div>
       <p class="status" style="margin:8px 0 0;"></p>`;
@@ -2752,7 +3453,7 @@ function buildPrivacyPanel(name, setting){
       const act = b.dataset.act;
       if(act === 'private'){
         const pin = panel.querySelector('input').value.trim();
-        if(!/^\d{4}$/.test(pin)){ fail('PIN은 숫자 4자리로 입력해주세요.'); return; }
+        if(!/^\d{4,6}$/.test(pin)){ fail('PIN은 숫자 4~6자리로 입력해주세요.'); return; }
         b.disabled = true;
         const { data, error } = await sb.rpc('profile_set_private', { p_name: name, p_pin: pin });
         b.disabled = false;
@@ -2775,7 +3476,8 @@ function buildPrivacyPanel(name, setting){
       } else if(act === 'change'){
         const oldPin = panel.querySelector('.pin-old').value.trim();
         const newPin = panel.querySelector('.pin-new').value.trim();
-        if(!/^\d{4}$/.test(oldPin) || !/^\d{4}$/.test(newPin)){ fail('PIN은 숫자 4자리로 입력해주세요.'); return; }
+        if(!/^\d{4,6}$/.test(oldPin) || !/^\d{4,6}$/.test(newPin)){ fail('PIN은 숫자 4~6자리로 입력해주세요.'); return; }
+        if(isWeakPin(newPin)){ fail(pinErrorMessage({ error: 'WEAK_PIN' })); return; }
         if(oldPin === newPin){ fail('새 PIN이 지금 PIN과 같아요.'); return; }
         b.disabled = true;
         const { data, error } = await sb.rpc('profile_change_pin', { p_name: name, p_old: oldPin, p_new: newPin });
