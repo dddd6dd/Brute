@@ -578,7 +578,11 @@ const ITEM_TYPES = [
   { value: 'barbell_conditioning', short: '바벨', label: '바벨 컨디셔닝 — 동작별로 무게 기록' },
   { value: 'amrap_by_round', short: '라운드 개수', label: '라운드별 개수 — 무게 고정, 라운드마다 개수' },
   { value: 'weight_by_round', short: '라운드 무게', label: '라운드별 무게 — 라운드마다 무게' },
-  { value: 'emom_by_round', short: '라운드 EMOM', label: '라운드별 언브로큰/브로큰' }
+  { value: 'emom_by_round', short: '라운드 EMOM', label: '라운드별 언브로큰/브로큰' },
+  { value: 'distance', short: '거리', label: '거리 — 점프 거리·높이 등 (cm/m/ft)' },
+  { value: 'calories', short: '칼로리', label: '칼로리 — 세트별 칼로리, 합계·평균 자동' },
+  { value: 'note', short: '메모', label: '메모 — 스킬 연습, For Quality' },
+  { value: 'check', short: '완료', label: '완료 체크 — 숫자 기록 없이 했는지만' }
 ];
 function itemTypeShort(type){ const t = ITEM_TYPES.find(x=>x.value===type); return t ? t.short : type; }
 
@@ -774,7 +778,7 @@ document.getElementById('json-load-btn').onclick = ()=>{
 
 function validateProgramItems(items){
   if(!Array.isArray(items) || items.length === 0) throw new Error('항목이 비어 있어요');
-  const validTypes = ['weight','for_time','amrap','emom_complete','reps','barbell_conditioning','amrap_by_round','weight_by_round','emom_by_round'];
+  const validTypes = ['weight','for_time','amrap','emom_complete','reps','barbell_conditioning','amrap_by_round','weight_by_round','emom_by_round','distance','calories','note','check'];
   items.forEach((it, i)=>{
     if(!it.section || !it.name || !it.type || !it.prescribed){
       throw new Error(`${i+1}번째 항목에 필수 필드(section/name/type/prescribed)가 없어요`);
@@ -1134,89 +1138,252 @@ function handleLogDateChange(date){
   renderLogForm(date);
 }
 
-// ---------- 무게 힌트: 이름을 넣으면 지난 기록·최고 기록을 보여주고, "@85%"가 있으면 무게를 계산해요 ----------
-const normLiftName = s => String(s || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
-function roundToPlate(kg, unit){
-  const step = unit === 'lb' ? 5 : 2.5;
-  return Math.round(fromKg(kg, unit) / step) * step;
+// ---------- 여러 파트 For Time (Each For Time + Rest): 시계 시간만 적으면 파트별 시간·총 시간 계산 ----------
+function parseRestSec(text){
+  const t = String(text || '');
+  let m = t.match(/rest\s*(\d+):(\d{2})/i);
+  if(m) return (+m[1]) * 60 + (+m[2]);
+  m = t.match(/rest\s*(\d+)\s*min/i);
+  return m ? (+m[1]) * 60 : 0;
 }
-function parsePercent(text){
-  const m = String(text || '').match(/@\s*(\d{2,3})\s*%/);
-  return m ? parseInt(m[1], 10) : null;
+function parseCapSec(text){
+  const t = String(text || '');
+  let m = t.match(/(\d+):(\d{2})\s*(?:min(?:ute)?s?\s*)?(?:time\s*)?cap\b/i);
+  if(m) return (+m[1]) * 60 + (+m[2]);
+  m = t.match(/time\s*cap[^0-9\n]{0,40}(\d+)(?::(\d{2}))?/i) || t.match(/\bcap[^0-9\n]{0,10}(\d+)(?::(\d{2}))?\s*min/i);
+  return m ? (+m[1]) * 60 + (+(m[2] || 0)) : 0;
 }
-const OF_TODAY_RE = /of what you hit|of today|of (the )?heaviest|of that/i;
-function shortDate(d){ const p = String(d).split('-'); return p.length === 3 ? (+p[1]) + '/' + (+p[2]) : d; }
+const fmtClock = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 
-function setupWeightHints(el, program, date){
-  const nameInput = document.getElementById('log-username');
-  if(!nameInput) return;
-  if(!nameInput.value) nameInput.value = localStorage.getItem('bruteLogName') || '';
-  let hist = [], keyLifts = [], timer = null;
-
-  const findKeyLift = (itemName)=>{
-    const n = normLiftName(itemName);
-    return keyLifts.find(k => normLiftName(k.lift_name) === n)
-      || keyLifts.find(k => { const k2 = normLiftName(k.lift_name); return k2.length >= 4 && (n.includes(k2) || k2.includes(n)); });
-  };
-
-  const renderCard = (card)=>{
-    const box = card.querySelector('.calc-hint');
-    if(!box) return;
-    const it = program.items[card.dataset.idx];
-    const unitSel = card.querySelector('.unit-select');
-    const unit = unitSel ? unitSel.value : getPreferredUnit();
-    const u = unit === 'lb' ? 'lb' : 'kg';
-    const n = normLiftName(it.name);
-    const past = hist.filter(r => normLiftName(r.item_name) === n && r.date < date && !r.skipped && !isNaN(parseFloat(r.value)));
-    const last = past[0];
-    const best = past.reduce((m, r)=> Math.max(m, parseFloat(r.value)), 0);
-    const key = findKeyLift(it.name);
-    const lines = [];
-    if(last){
-      const lv = parseFloat(last.value);
-      lines.push('<div style="color:var(--text-secondary);">지난 기록 ' + formatWeight(lv, unit) + ' · ' + shortDate(last.date) + (best > lv ? ' &nbsp;·&nbsp; 최고 ' + formatWeight(best, unit) : '') + '</div>');
-    }
-    const pct = parsePercent(it.prescribed);
-    const calcLine = (kg, note)=> '<div style="color:var(--border-accent); font-weight:500;">' + pct + '% → ' + roundToPlate(kg * pct / 100, unit) + u + ' <span style="font-weight:400;">(' + note + ')</span></div>';
-    if(pct){
-      const inp = card.querySelector('.rec-input');
-      const todayVal = inp && parseFloat(inp.value);
-      if(OF_TODAY_RE.test(it.prescribed)){
-        if(todayVal) lines.push(calcLine(toKg(todayVal, unit), '오늘 ' + todayVal + u + ' 기준'));
-        else lines.push('<div style="color:var(--text-muted);">오늘 무게를 넣으면 ' + pct + '% 무게를 계산해줘요</div>');
-      } else if(key){
-        lines.push(calcLine(key.value_kg, '주요 리프트 ' + escapeHtml(key.lift_name) + ' ' + formatWeight(key.value_kg, unit) + ' 기준'));
-      } else if(best){
-        lines.push(calcLine(best, '지난 최고 ' + formatWeight(best, unit) + ' 기준'));
-      }
-    }
-    box.innerHTML = lines.join('');
-    box.style.display = lines.length ? 'flex' : 'none';
-  };
-  const renderAll = ()=> el.querySelectorAll('.card[data-idx]').forEach(renderCard);
-
-  const load = async ()=>{
-    const name = nameInput.value.trim();
-    localStorage.setItem('bruteLogName', name);
-    if(!name){ hist = []; keyLifts = []; renderAll(); return; }
-    const [r1, r2] = await Promise.all([
-      sb.from('records').select('item_name, value, date, skipped').eq('name', name).eq('type', 'weight').order('date', { ascending: false }),
-      sb.from('key_lifts').select('lift_name, value_kg').eq('name', name)
-    ]);
-    if(nameInput.value.trim() !== name) return;
-    hist = r1.data || [];
-    keyLifts = r2.data || [];
-    renderAll();
-  };
-  nameInput.addEventListener('input', ()=>{ clearTimeout(timer); timer = setTimeout(load, 400); });
-  el.querySelectorAll('.card[data-idx]').forEach(card=>{
-    if(!card.querySelector('.calc-hint')) return;
-    const inp = card.querySelector('.rec-input');
-    const sel = card.querySelector('.unit-select');
-    if(inp) inp.addEventListener('input', ()=> renderCard(card));
-    if(sel) sel.addEventListener('change', ()=> renderCard(card));
+function buildMultiPartCard(parts, subName, sectionName){
+  const card = document.createElement('div');
+  card.className = 'card multi-part-card';
+  card.style.marginLeft = '0';
+  const capSec = parts.reduce((m, it) => m || parseCapSec(it.prescribed), 0);
+  const timeInput = cls => '<div style="display:flex; gap:4px; align-items:center;"><input type="number" inputmode="numeric" placeholder="분" class="' + cls + '-min" style="width:60px;" /><span>:</span><input type="number" inputmode="numeric" placeholder="초" class="' + cls + '-sec" style="width:60px;" /></div>';
+  let html = '<p class="muted" style="font-size:13px; margin:0 0 12px;">파트가 끝날 때 체육관 시계에 보이는 시간을 Finish에 적어주세요. 파트별 시간은 자동으로 계산돼요.</p>';
+  parts.forEach((it, i)=>{
+    const rest = i < parts.length - 1 ? parseRestSec(it.prescribed) : 0;
+    html += '<div class="mp-part" data-i="' + i + '" style="padding:12px 0; border-top:0.5px solid var(--border);">'
+      + '<div style="margin-bottom:6px;"><span class="muted" style="font-size:12px; margin-right:6px;">PART ' + (i + 1) + '</span><span class="item-name">' + escapeHtml(it.name) + '</span></div>'
+      + '<div class="muted" style="margin:0 0 10px; line-height:1.55;">' + formatPrescribed(it.prescribed) + '</div>'
+      + '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">'
+      + '<div style="display:flex; align-items:center; gap:8px;"><span class="muted" style="font-size:14px;">Finish</span>' + timeInput('mp') + '</div>'
+      + '<span class="mp-split" style="font-size:15px; font-weight:600;"></span></div>'
+      + '<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:8px;">'
+      + '<label style="display:flex; align-items:center; gap:4px; font-size:14px; margin:0;"><input type="checkbox" class="mp-unfin" style="width:auto; height:auto;" />못 끝냄</label>'
+      + '<input type="number" inputmode="numeric" class="mp-unfin-reps" placeholder="완료한 개수" style="width:110px; display:none;" />'
+      + '<label style="display:flex; align-items:center; gap:4px; font-size:14px; margin:0;"><input type="checkbox" class="mp-pskip" style="width:auto; height:auto;" />이 파트 생략</label>'
+      + '</div>'
+      + (rest ? '<div class="mp-rest muted" style="font-size:13px; margin-top:8px;"></div>' : '')
+      + '</div>';
   });
-  load();
+  html += '<div style="padding:12px 0 0; border-top:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">'
+    + '<div style="display:flex; align-items:center; gap:6px;"><span class="muted" style="font-size:14px;">타임캡</span><input type="number" inputmode="numeric" class="mp-cap" placeholder="분" value="' + (capSec ? Math.round(capSec / 60) : '') + '" style="width:64px;" /><span class="muted" style="font-size:14px;">분</span></div>'
+    + '<span class="mp-total" style="font-size:16px; font-weight:600;"></span></div>'
+    + '<div class="mp-capnote muted" style="font-size:13px; margin-top:4px; text-align:right;"></div>'
+    + '<div class="row" style="margin:12px 0 8px;"><label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="mp-skip" style="width:auto; height:auto;" />오늘 생략</label></div>'
+    + '<input type="text" class="mp-notes" placeholder="메모 (선택, 예: BMU 5개까지 하고 끝)" style="width:100%; font-size:15px;" />';
+  card.innerHTML = html;
+
+  const rows = [...card.querySelectorAll('.mp-part')];
+  const readClock = row => {
+    const m = row.querySelector('.mp-min').value, s = row.querySelector('.mp-sec').value;
+    return (m === '' && s === '') ? null : (parseInt(m) || 0) * 60 + (parseInt(s) || 0);
+  };
+  const compute = ()=>{
+    let start = 0, last = null;
+    const out = [];
+    rows.forEach((row, i)=>{
+      const pskip = row.querySelector('.mp-pskip').checked;
+      const unfin = !pskip && row.querySelector('.mp-unfin').checked;
+      row.querySelector('.mp-unfin-reps').style.display = unfin ? '' : 'none';
+      row.querySelectorAll('.mp-min, .mp-sec').forEach(x => x.disabled = pskip || skip.checked);
+      const clock = pskip ? null : readClock(row);
+      const split = clock == null ? null : clock - start;
+      const sp = row.querySelector('.mp-split');
+      if(split == null) sp.textContent = '';
+      else if(split <= 0){ sp.textContent = '시계 시간을 확인해주세요'; sp.style.color = 'var(--text-danger)'; }
+      else { sp.textContent = (unfin ? '멈춤 ' : '파트 ') + fmtClock(split); sp.style.color = ''; }
+      if(pskip){ sp.textContent = '생략'; sp.style.color = 'var(--text-muted)'; }
+      const rest = i < rows.length - 1 ? parseRestSec(parts[i].prescribed) : 0;
+      const restEl = row.querySelector('.mp-rest');
+      if(restEl) restEl.textContent = 'Rest ' + fmtClock(rest) + (clock != null ? ' → 다음 파트 ' + fmtClock(clock + rest) + '에 시작' : '');
+      out.push({ clock, split: split > 0 ? split : null, pskip, unfin, reps: parseInt(row.querySelector('.mp-unfin-reps').value) || 0 });
+      if(clock != null){ start = clock + rest; last = clock; }
+    });
+    const capMin = parseInt(card.querySelector('.mp-cap').value);
+    const totalEl = card.querySelector('.mp-total');
+    const capNote = card.querySelector('.mp-capnote');
+    totalEl.textContent = last != null ? '총 ' + fmtClock(last) : '';
+    const anyUnfin = out.some(o => o.unfin && o.split != null);
+    capNote.textContent = anyUnfin ? '타임캡 걸림' : (last != null && capMin) ? (last <= capMin * 60 ? fmtClock(capMin * 60 - last) + ' 남기고 끝냈어요' : '타임캡보다 ' + fmtClock(last - capMin * 60) + ' 넘었어요') : '';
+    return { out, last, capMin, anyUnfin };
+  };
+  const skip = card.querySelector('.mp-skip');
+  card.querySelectorAll('input').forEach(inp => { inp.addEventListener('input', compute); inp.addEventListener('change', compute); });
+  compute();
+  skip.onchange = ()=>{ rows.forEach(r => r.querySelectorAll('input').forEach(x => x.disabled = skip.checked)); card.querySelector('.mp-notes').placeholder = skip.checked ? '생략 이유 (선택)' : '메모 (선택, 예: BMU 5개까지 하고 끝)'; };
+
+  card._collect = (date, name)=>{
+    const notes = card.querySelector('.mp-notes').value.trim();
+    const sec = normSec(parts[0].section);
+    if(skip.checked){
+      return parts.map(it => ({ date, name, item_name: it.name, section: sec, type: it.type, value: '생략', scaled: true, scale_detail: notes ? '생략: ' + notes : '생략함', skipped: true }));
+    }
+    const { out, last, capMin, anyUnfin } = compute();
+    const recs = [];
+    out.forEach((o, i)=>{
+      if(o.pskip){ recs.push({ date, name, item_name: parts[i].name, section: sec, type: 'for_time', value: '생략', scaled: true, scale_detail: '생략함', skipped: true }); return; }
+      if(o.split == null) return;
+      const d = { spec: (o.unfin ? 'Finish ' + fmtClock(o.clock) + ' · 못 끝냄 ' + o.reps + '개' : 'Finish ' + fmtClock(o.clock)), clock: o.clock };
+      if(o.unfin){ d.unfin = true; d.reps = o.reps; }
+      recs.push({ date, name, item_name: parts[i].name, section: sec, type: 'for_time', value: o.unfin ? 'CAP +' + o.reps : fmtClock(o.split), scaled: false, scale_detail: '§' + JSON.stringify(d), skipped: false });
+    });
+    if(last != null){
+      let spec = '';
+      if(anyUnfin) spec = '타임캡 걸림' + (capMin ? ' (' + capMin + ':00)' : '');
+      else if(capMin) spec = '타임캡 ' + capMin + ':00 · ' + (last <= capMin * 60 ? fmtClock(capMin * 60 - last) + ' 남김' : fmtClock(last - capMin * 60) + ' 초과');
+      const d = {}; if(spec) d.spec = spec; if(notes) d.notes = notes; if(capMin) d.cap = capMin;
+      recs.push({ date, name, item_name: (stripLabelPrefix(subName) || stripLabelPrefix(sectionName)) + ' · Total', section: sec, type: 'for_time', value: anyUnfin ? 'CAP' : fmtClock(last), scaled: !!notes, scale_detail: '§' + JSON.stringify(d), skipped: false });
+    }
+    return recs;
+  };
+  const totalName = (stripLabelPrefix(subName) || stripLabelPrefix(sectionName)) + ' · Total';
+  const partNames = parts.map(x => x.name);
+  card._restore = recs => {
+    const setClock = (row, sec)=>{ row.querySelector('.mp-min').value = Math.floor(sec / 60); row.querySelector('.mp-sec').value = sec % 60; };
+    recs.forEach(r=>{
+      const pd = parsePersonalDetail(r) || {};
+      const i = partNames.indexOf(r.item_name);
+      if(r.skipped){
+        if(recs.every(x => x.skipped) && recs.length >= parts.length){ skip.checked = true; skip.onchange(); const rs = String(r.scale_detail || '').replace(/^생략:\s*/, ''); if(rs && rs !== '생략함') card.querySelector('.mp-notes').value = rs; }
+        else if(i >= 0) rows[i].querySelector('.mp-pskip').checked = true;
+        return;
+      }
+      if(i >= 0 && pd.unfin){ rows[i].querySelector('.mp-unfin').checked = true; rows[i].querySelector('.mp-unfin-reps').value = pd.reps || 0; }
+      if(i >= 0 && pd.clock != null) setClock(rows[i], pd.clock);
+      if(r.item_name === totalName){ if(pd.notes) card.querySelector('.mp-notes').value = pd.notes; if(pd.cap) card.querySelector('.mp-cap').value = pd.cap; }
+    });
+    compute();
+  };
+  attachAutosave(card, { collect: card._collect, owns: r => normSec(r.section) === normSec(parts[0].section) && (partNames.includes(r.item_name) || r.item_name === totalName) });
+  return card;
+}
+
+// ---------- 같은 세트 반복 For Time ("6 Sets ... Rest 2:30"): 세트별 Finish → Split, 페이스 ----------
+function repeatSetsMatch(it){
+  return String(it.prescribed || '').match(/^\s*(\d+)\s*(sets?|rounds?)\b([^\n]*)/im);
+}
+function repeatSetsCount(it){
+  const m = repeatSetsMatch(it);
+  const n = m ? parseInt(m[1]) : 0;
+  if(n < 2 || n > 20) return 0;
+  return (parseRestSec(it.prescribed) > 0 || /for\s*time/i.test(m[3])) ? n : 0;
+}
+function buildRepeatSetCard(it){
+  const n = repeatSetsCount(it);
+  const rest = parseRestSec(it.prescribed);
+  const unitWord = /^r/i.test(repeatSetsMatch(it)[2]) ? '라운드' : '세트';
+  const capSec = parseCapSec(it.prescribed);
+  const card = document.createElement('div');
+  card.className = 'card multi-part-card';
+  card.style.marginLeft = '0';
+  let rowsHtml = '';
+  for(let i = 1; i <= n; i++){
+    rowsHtml += '<div class="rs-row" style="display:grid; grid-template-columns:52px auto minmax(0,1fr); align-items:center; gap:10px; padding:8px 0; border-top:0.5px solid var(--border);">'
+      + '<span class="muted" style="font-size:14px;">' + i + unitWord + '</span>'
+      + '<div style="display:flex; gap:4px; align-items:center;"><input type="number" inputmode="numeric" placeholder="분" class="rs-min" style="width:56px;" /><span>:</span><input type="number" inputmode="numeric" placeholder="초" class="rs-sec" style="width:56px;" /></div>'
+      + '<div style="text-align:right; line-height:1.3;"><div class="rs-split" style="font-size:15px; font-weight:600;"></div><div class="rs-next muted" style="font-size:12px;"></div></div>'
+      + '</div>';
+  }
+  card.innerHTML = '<div style="margin-bottom:8px;"><span class="item-name">' + escapeHtml(it.name) + '</span></div>'
+    + '<div class="muted" style="margin:0 0 10px; line-height:1.55;">' + formatPrescribed(it.prescribed) + '</div>'
+    + '<p class="muted" style="font-size:13px; margin:0 0 6px;">' + unitWord + '가 끝날 때 시계 시간을 Finish에 적어주세요. ' + (rest ? unitWord + '별 시간과 다음 시작 시간(Rest ' + fmtClock(rest) + ')은 자동으로 계산돼요.' : unitWord + '별 시간은 자동으로 계산돼요.') + '</p>'
+    + '<div style="display:grid; grid-template-columns:52px auto minmax(0,1fr); gap:10px; font-size:12px; color:var(--text-muted); padding:4px 0;"><span></span><span>Finish</span><span style="text-align:right;">Split</span></div>'
+    + rowsHtml
+    + '<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:8px 0;"><label style="display:flex; align-items:center; gap:4px; font-size:14px; margin:0;"><input type="checkbox" class="rs-unfin" style="width:auto; height:auto;" />마지막 ' + unitWord + ' 못 끝냄</label><input type="number" inputmode="numeric" class="rs-unfin-reps" placeholder="완료한 개수" style="width:110px; display:none;" /></div>'
+    + '<div style="padding:12px 0 0; border-top:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">'
+    + '<div style="display:flex; align-items:center; gap:6px;"><span class="muted" style="font-size:14px;">타임캡</span><input type="number" inputmode="numeric" class="rs-cap" placeholder="분" value="' + (capSec ? Math.round(capSec / 60) : '') + '" style="width:64px;" /><span class="muted" style="font-size:14px;">분</span></div>'
+    + '<span class="rs-total" style="font-size:16px; font-weight:600;"></span></div>'
+    + '<div class="rs-pace muted" style="font-size:13px; margin-top:4px; text-align:right;"></div>'
+    + '<div class="row" style="margin:12px 0 8px;"><label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="rs-skip" style="width:auto; height:auto;" />오늘 생략</label></div>'
+    + '<input type="text" class="rs-notes" placeholder="메모 (선택, 예: 4' + unitWord + '부터 끊어감)" style="width:100%; font-size:15px;" />';
+
+  const rows = [...card.querySelectorAll('.rs-row')];
+  const compute = ()=>{
+    let start = 0, last = null;
+    const out = [];
+    rows.forEach((row, i)=>{
+      const m = row.querySelector('.rs-min').value, s = row.querySelector('.rs-sec').value;
+      const clock = (m === '' && s === '') ? null : (parseInt(m) || 0) * 60 + (parseInt(s) || 0);
+      const split = clock == null ? null : clock - start;
+      const sp = row.querySelector('.rs-split'), nx = row.querySelector('.rs-next');
+      if(split == null){ sp.textContent = ''; nx.textContent = ''; }
+      else if(split <= 0){ sp.textContent = '시간 확인'; sp.style.color = 'var(--text-danger)'; nx.textContent = ''; }
+      else { sp.textContent = fmtClock(split); sp.style.color = ''; nx.textContent = (rest && i < rows.length - 1) ? fmtClock(clock + rest) + ' 시작' : ''; }
+      out.push({ clock, split: split > 0 ? split : null });
+      if(clock != null){ start = clock + rest; last = clock; }
+    });
+    const valid = out.map((o, i) => ({ ...o, i })).filter(o => o.split != null);
+    let pace = '';
+    if(valid.length >= 2){
+      const fast = valid.reduce((a, b) => b.split < a.split ? b : a);
+      const slow = valid.reduce((a, b) => b.split > a.split ? b : a);
+      pace = '가장 빠름 ' + (fast.i + 1) + unitWord + ' ' + fmtClock(fast.split) + ' · 가장 느림 ' + (slow.i + 1) + unitWord + ' ' + fmtClock(slow.split);
+      const diff = slow.split - fast.split;
+      if(diff > 0) pace += ' (차이 ' + fmtClock(diff) + ')';
+    }
+    const unfin = card.querySelector('.rs-unfin').checked;
+    card.querySelector('.rs-unfin-reps').style.display = unfin ? '' : 'none';
+    const capMin = parseInt(card.querySelector('.rs-cap').value);
+    let capText = '';
+    if(last != null && capMin) capText = last <= capMin * 60 ? fmtClock(capMin * 60 - last) + ' 남김' : fmtClock(last - capMin * 60) + ' 초과';
+    card.querySelector('.rs-total').textContent = last != null ? '총 ' + fmtClock(last) : '';
+    card.querySelector('.rs-pace').textContent = [pace, capText].filter(Boolean).join(' · ');
+    if(unfin) capText = '타임캡 걸림';
+    return { out, last, capMin, pace, capText, unfin, reps: parseInt(card.querySelector('.rs-unfin-reps').value) || 0 };
+  };
+  card.querySelectorAll('input').forEach(inp => { inp.addEventListener('input', compute); inp.addEventListener('change', compute); });
+  compute();
+  const skip = card.querySelector('.rs-skip');
+  skip.onchange = ()=> rows.forEach(r => r.querySelectorAll('input').forEach(x => x.disabled = skip.checked));
+
+  card._collect = (date, name)=>{
+    const notes = card.querySelector('.rs-notes').value.trim();
+    if(skip.checked) return [{ date, name, item_name: it.name, section: normSec(it.section), type: 'for_time', value: '생략', scaled: true, scale_detail: notes ? '생략: ' + notes : '생략함', skipped: true }];
+    const { out, last, capMin, pace, capText, unfin, reps } = compute();
+    const recs = [];
+    const lastI = out.reduce((m, o, i) => o.split != null ? i : m, -1);
+    out.forEach((o, i)=>{
+      if(o.split == null) return;
+      if(unfin && i === lastI){ recs.push({ date, name, item_name: it.name + ' - ' + (i + 1) + 'R', section: normSec(it.section), type: 'for_time', value: 'CAP +' + reps, scaled: false, scale_detail: '§' + JSON.stringify({ spec: 'Finish ' + fmtClock(o.clock) + ' · 못 끝냄 ' + reps + '개', clock: o.clock, unfin: true, reps }), skipped: false }); return; }
+      recs.push({ date, name, item_name: it.name + ' - ' + (i + 1) + 'R', section: normSec(it.section), type: 'for_time', value: fmtClock(o.split), scaled: false, scale_detail: '§' + JSON.stringify({ spec: 'Finish ' + fmtClock(o.clock), clock: o.clock }), skipped: false });
+    });
+    if(last != null){
+      const d = {};
+      const spec = [pace, unfin ? capText : (capMin ? '타임캡 ' + capMin + ':00 · ' + capText : '')].filter(Boolean).join(' · ');
+      if(spec) d.spec = spec;
+      if(notes) d.notes = notes;
+      if(capMin) d.cap = capMin;
+      recs.push({ date, name, item_name: it.name, section: normSec(it.section), type: 'for_time', value: fmtClock(last), scaled: !!notes, scale_detail: '§' + JSON.stringify(d), skipped: false });
+    }
+    return recs;
+  };
+  const roundRe = new RegExp('^' + escRe(it.name) + ' - (\\d+)R$');
+  card._restore = recs => {
+    recs.forEach(r=>{
+      const pd = parsePersonalDetail(r) || {};
+      if(r.skipped){ skip.checked = true; skip.onchange(); const rs = String(r.scale_detail || '').replace(/^생략:\s*/, ''); if(rs && rs !== '생략함') card.querySelector('.rs-notes').value = rs; return; }
+      const m = r.item_name.match(roundRe);
+      if(m && pd.unfin){ card.querySelector('.rs-unfin').checked = true; card.querySelector('.rs-unfin-reps').value = pd.reps || 0; }
+      if(m && pd.clock != null && rows[m[1] - 1]){ rows[m[1] - 1].querySelector('.rs-min').value = Math.floor(pd.clock / 60); rows[m[1] - 1].querySelector('.rs-sec').value = pd.clock % 60; }
+      if(r.item_name === it.name){ if(pd.notes) card.querySelector('.rs-notes').value = pd.notes; if(pd.cap) card.querySelector('.rs-cap').value = pd.cap; }
+    });
+    compute();
+  };
+  attachAutosave(card, { collect: card._collect, owns: r => normSec(r.section) === normSec(it.section) && (r.item_name === it.name || roundRe.test(r.item_name)) });
+  return card;
 }
 
 // ---------- Personal Training: 프로그램 외 개인 운동 (영문 UI, 순위 제외) ----------
@@ -1256,7 +1423,7 @@ function personalDetailHtml(r, unit){
   if(!p) return null;
   const w = kg => formatWeight(kg, unit);
   const rows = [];
-  if(p.spec) rows.push('<div style="color:var(--text-muted);">' + escapeHtml(p.spec) + '</div>');
+  if(p.spec) rows.push('<div style="color:var(--text-muted);">' + escapeHtml(String(p.spec).replace(/^시계 (\d+:\d{2})에 끝남/, 'Finish $1').replace(/^시계 (\d+:\d{2})에 멈춤 · (\d+)개 완료/, 'Finish $1 · 못 끝냄 $2개')) + '</div>');
   if(p.sets && p.sets.length){
     rows.push('<div style="display:grid; grid-template-columns:auto minmax(0,1fr); gap:2px 14px;">'
       + p.sets.map((s, i) => '<span style="color:var(--text-muted);">' + (i + 1) + '세트</span><span>'
@@ -1334,7 +1501,7 @@ function buildPersonalSection(programItems){
     wrap.appendChild(row);
   }
 
-  function addEntry(type){
+  function addEntry(type, f){
     const t = PERSONAL_TYPES.find(x => x.key === type);
     const card = document.createElement('div');
     card.className = 'card p-entry';
@@ -1382,7 +1549,16 @@ function buildPersonalSection(programItems){
       + '<span style="flex:1;"></span>' + unitSel
       + '<button type="button" class="p-remove" title="삭제" style="width:32px; height:32px; ' + ICON_BTN_DANGER_STYLE + '">' + TRASH_ICON_SVG + '</button></div>'
       + body;
-    card.querySelector('.p-remove').onclick = ()=> card.remove();
+    card.querySelector('.p-remove').onclick = async ()=>{
+      if(card._as && card._as.ids.length){
+        if(!confirm('이 운동 기록을 지울까요?')) return;
+        card._as.removing = true;
+        await saveCard(card);
+        if(card._as.ids.length){ card._as.removing = false; return; }
+      }
+      LOG_CTX.cards.delete(card);
+      card.remove();
+    };
     if(card.querySelector('.p-sets')){
       addSetRow(card);
       card.querySelector('.p-add-set').onclick = ()=>{ const rows = card.querySelectorAll('.p-set'); addSetRow(card, rows[rows.length - 1]); };
@@ -1399,13 +1575,46 @@ function buildPersonalSection(programItems){
       card.querySelector('.p-time-wrap').style.display = cap.checked ? 'none' : 'block';
     };
     entries.appendChild(card);
+    if(f) restoreEntry(card, f);
+    attachAutosave(card, { collect: (date, name)=> collectEntry(card, date, name), byId: true });
     const first = card.querySelector('.p-name');
-    if(first) first.focus();
+    if(first && !f) first.focus();
+    return card;
   }
 
-  function collect(date, name){
+  function snapEntry(card){
+    const q = s => card.querySelector(s);
+    const v = s => q(s) ? q(s).value : undefined;
+    return {
+      t: card.dataset.ptype, u: v('.p-unit'), n: v('.p-name'), notes: v('.p-notes'), every: v('.p-every'), rounds: v('.p-rounds'),
+      res: v('.p-result'), fr: v('.p-fail-round'), dur: v('.p-duration'), rr: v('.p-res-rounds'), rp: v('.p-res-reps'),
+      mi: v('.p-min'), se: v('.p-sec'), cap: q('.p-capped') ? q('.p-capped').checked : undefined, cr: v('.p-cap-reps'),
+      sets: [...card.querySelectorAll('.p-set')].map(r => [r.querySelector('.p-w').value, r.querySelector('.p-r').value]),
+      moves: [...card.querySelectorAll('.p-move')].map(r => [r.querySelector('.p-mn').value, r.querySelector('.p-mr').value, r.querySelector('.p-mw').value])
+    };
+  }
+  function restoreEntry(card, f){
+    const set = (s, val)=>{ const e = card.querySelector(s); if(e && val != null) e.value = val; };
+    set('.p-unit', f.u); set('.p-name', f.n); set('.p-notes', f.notes); set('.p-every', f.every); set('.p-rounds', f.rounds);
+    set('.p-result', f.res); set('.p-fail-round', f.fr); set('.p-duration', f.dur); set('.p-res-rounds', f.rr); set('.p-res-reps', f.rp);
+    set('.p-min', f.mi); set('.p-sec', f.se); set('.p-cap-reps', f.cr);
+    const cap = card.querySelector('.p-capped');
+    if(cap && f.cap){ cap.checked = true; cap.onchange(); }
+    const res = card.querySelector('.p-result');
+    if(res && res.onchange) res.onchange();
+    if(card.querySelector('.p-sets') && f.sets && f.sets.length){
+      card.querySelector('.p-sets').innerHTML = '';
+      f.sets.forEach(s=>{ addSetRow(card); const rows = card.querySelectorAll('.p-set'); const r = rows[rows.length - 1]; r.querySelector('.p-w').value = s[0] || ''; r.querySelector('.p-r').value = s[1] || ''; });
+    }
+    if(card.querySelector('.p-moves') && f.moves && f.moves.length){
+      card.querySelector('.p-moves').innerHTML = '';
+      f.moves.forEach(m=>{ addMoveRow(card); const rows = card.querySelectorAll('.p-move'); const r = rows[rows.length - 1]; r.querySelector('.p-mn').value = m[0] || ''; r.querySelector('.p-mr').value = m[1] || ''; r.querySelector('.p-mw').value = m[2] || ''; });
+    }
+  }
+
+  function collectEntry(card, date, name){
     const out = [];
-    entries.querySelectorAll('.p-entry').forEach(card=>{
+    (()=>{
       const type = card.dataset.ptype;
       const q = s => card.querySelector(s);
       const val = s => { const e = q(s); return e ? String(e.value).trim() : ''; };
@@ -1415,6 +1624,7 @@ function buildPersonalSection(programItems){
       const nm = val('.p-name');
       const push = (item_name, recType, value, detail)=>{
         Object.keys(detail).forEach(k => { const v = detail[k]; if(v == null || v === '' || (Array.isArray(v) && !v.length)) delete detail[k]; });
+        detail.f = snapEntry(card);
         out.push({ date, name, item_name, section: PERSONAL_SECTION, type: recType, value: String(value), scaled: !!detail.notes, scale_detail: '§' + JSON.stringify(detail), skipped: false });
       };
       const moves = [...card.querySelectorAll('.p-move')].map(r => ({
@@ -1465,17 +1675,422 @@ function buildPersonalSection(programItems){
         const dur = val('.p-duration');
         push(nm || autoTitle || 'AMRAP', 'amrap', (parseInt(r) || 0) + ' rounds + ' + (parseInt(rp) || 0) + ' reps', { spec: dur ? dur + ' min AMRAP' : '', moves, notes });
       }
-    });
+    })();
     return out;
   }
 
-  return { box, collect };
+  function restore(r){
+    const pd = parsePersonalDetail(r);
+    if(!pd || !pd.f || !PERSONAL_TYPES.some(t => t.key === pd.f.t)) return null;
+    return addEntry(pd.f.t, pd.f);
+  }
+
+  return { box, restore };
+}
+
+// ---------- 자동 저장: 카드마다 따로 저장, 같은 카드는 덮어쓰기 ----------
+const LOG_CTX = { date: null, name: '', cards: new Set(), token: 0 };
+function isAddedWeight(name){ return /^weighted\b/i.test(String(name || '')); }
+function fmtWeightRec(r, unit){ return (isAddedWeight(r.item_name) ? '+' : '') + formatWeight(parseFloat(r.value) || 0, unit); }
+function rmLabel(k){ return k === 'S' ? '탑 싱글' : k + 'RM'; }
+function normSec(s){ return stripLabelPrefix(String(s || '')).trim(); }
+function parseRm(text){
+  const t = String(text || '');
+  let m = t.match(/build\s+to\s+an?\s*(\d+)\s*-?\s*rm/i) || t.match(/기록은\s*그날\s*(\d+)\s*rm/i) || t.match(/(\d+)\s*-?\s*rm\s+for\s+the\s+day/i);
+  if(m) return parseInt(m[1]);
+  if(/heavy\s+single/i.test(t)) return /rpe/i.test(t) ? 'S' : 1;
+  return 0;
+}
+function calMachines(it){
+  const out = [];
+  String(it.prescribed || '').split('\n').forEach(l=>{
+    const m = l.match(/max\s+cal(?:orie)?s?\s+(.+?)\s*(?:@.*)?$/i);
+    if(m && !out.includes(m[1].trim())) out.push(m[1].trim());
+  });
+  return out.length >= 2 ? out : [];
+}
+function parseSetRange(it){
+  const t = String(it.prescribed || '');
+  const m = t.match(/x\s*(\d+)\s*(?:-\s*\d+)?\s*sets?/i) || t.match(/^\s*(\d+)\s*sets?/im);
+  return Math.min(20, Math.max(1, parseInt(it.rounds) || (m ? parseInt(m[1]) : 6)));
+}
+function initStdInputs(card, item){
+  if(item.type === 'for_time'){
+    const cap = card.querySelector('.cap-check');
+    const sync = ()=>{
+      card.querySelector('.time-wrap').style.display = cap.checked ? 'none' : 'flex';
+      card.querySelector('.cap-reps').style.display = cap.checked ? '' : 'none';
+      card.querySelector('.done-wrap').style.display = cap.checked ? 'none' : 'flex';
+    };
+    cap.onchange = sync;
+    card._syncCap = sync;
+  }
+  if(item.type === 'calories'){
+    const rows = card.querySelector('.cal-rows');
+    const machines = calMachines(item);
+    card._machines = machines;
+    const cols = Math.max(1, machines.length);
+    const sum = ()=>{
+      const per = Array(cols).fill(0); let total = 0, sets = 0;
+      [...rows.children].forEach(r=>{
+        const v = [...r.querySelectorAll('.cal-in')].map(x => parseFloat(x.value));
+        if(v.some(n => !isNaN(n))) sets++;
+        v.forEach((n, i)=>{ if(!isNaN(n)){ per[i] += n; total += n; } });
+      });
+      const perText = machines.length > 1 ? machines.map((m, i) => m + ' ' + per[i]).join(' · ') + ' · ' : '';
+      card.querySelector('.cal-sum').textContent = sets ? perText + '합계 ' + total + ' cal' : '';
+    };
+    const add = ()=>{
+      const r = document.createElement('div');
+      r.style.cssText = 'display:grid; grid-template-columns:52px repeat(' + cols + ', minmax(0,1fr)); gap:8px; align-items:center;';
+      r.innerHTML = '<span class="muted" style="font-size:14px;">' + (rows.children.length + 1) + '세트</span>'
+        + Array.from({ length: cols }, (_, i) => '<input type="number" inputmode="numeric" class="cal-in" placeholder="' + escapeAttr(machines[i] || 'cal') + '" style="min-width:0;" />').join('');
+      r.querySelectorAll('input').forEach(x => x.addEventListener('input', sum));
+      rows.appendChild(r);
+    };
+    for(let i = 0; i < parseSetRange(item); i++) add();
+    card.querySelector('.cal-add').onclick = add;
+    card._calAdd = add;
+    card._calSum = sum;
+  }
+  if(item.type === 'note' || item.type === 'check'){
+    const sc = card.querySelector('.scale-check');
+    if(sc) sc.closest('label').style.display = 'none';
+  }
+}
+function escRe(s){ return String(s).replace(/[.*+?^$\{}()|[\]\\]/g, '\\$&'); }
+function setSaveStatus(card, kind, text){
+  const st = card._as && card._as.st;
+  if(!st) return;
+  st.textContent = text || '';
+  st.style.color = kind === 'err' ? 'var(--text-danger)' : (kind === 'ok' ? 'var(--text-success)' : 'var(--text-muted)');
+  st.style.cursor = kind === 'err' ? 'pointer' : 'default';
+}
+function attachAutosave(card, opts){
+  const st = document.createElement('div');
+  st.className = 'save-status';
+  st.style.cssText = 'text-align:right; font-size:12px; min-height:16px; margin-top:8px;';
+  st.onclick = ()=>{ if(card._as.lastErr){ card._as.last = null; saveCard(card); } };
+  card.appendChild(st);
+  card._as = { date: LOG_CTX.date, name: LOG_CTX.name, collect: opts.collect, owns: opts.owns, byId: !!opts.byId, ids: [], last: null, timer: null, pending: false, chain: Promise.resolve(), st };
+  const schedule = ms => { clearTimeout(card._as.timer); card._as.pending = true; card._as.timer = setTimeout(()=> saveCard(card), ms); };
+  card.addEventListener('input', ()=> schedule(2500));
+  card.addEventListener('change', ()=> schedule(400));
+  card.addEventListener('click', e => { const b = e.target.closest('button'); if(b && !b.classList.contains('p-remove')) schedule(600); });
+  LOG_CTX.cards.add(card);
+}
+function saveCard(card){
+  const as = card._as;
+  clearTimeout(as.timer);
+  as.chain = as.chain.then(async ()=>{
+    as.pending = false;
+    const date = as.date, name = as.name;
+    if(!name){ setSaveStatus(card, 'err', '기록하는 사람을 먼저 정해주세요'); return; }
+    if(!as.removing && (!card.isConnected || date !== LOG_CTX.date || name !== LOG_CTX.name)) return;
+    const recs = as.removing ? [] : as.collect(date, name);
+    const json = JSON.stringify(recs);
+    if(!as.removing && json === as.last) return;
+    setSaveStatus(card, '', '저장 중…');
+    let newIds = [];
+    if(recs.length){
+      const { data, error } = await sb.from('records').insert(recs).select('id');
+      if(error){ as.lastErr = true; setSaveStatus(card, 'err', '저장 실패 · 눌러서 다시 시도'); return; }
+      newIds = (data || []).map(r => r.id);
+    }
+    let oldIds = as.ids;
+    if(!as.byId){
+      const { data: cur, error } = await sb.from('records').select('id, item_name, section').eq('date', date).eq('name', name);
+      if(!error) oldIds = (cur || []).filter(r => as.owns(r)).map(r => r.id);
+    }
+    const del = oldIds.filter(id => !newIds.includes(id));
+    if(del.length){
+      const { error } = await sb.from('records').delete().in('id', del);
+      if(error){ as.ids = newIds.concat(del); as.lastErr = true; setSaveStatus(card, 'err', '이전 기록 정리 실패 · 눌러서 다시 시도'); return; }
+    }
+    as.ids = newIds;
+    as.last = json;
+    as.lastErr = false;
+    const t = new Date();
+    setSaveStatus(card, 'ok', recs.length ? '저장됨 ' + t.getHours() + ':' + String(t.getMinutes()).padStart(2, '0') : (del.length ? '기록을 지웠어요' : ''));
+  }).catch(()=>{ as.lastErr = true; setSaveStatus(card, 'err', '저장 실패 · 눌러서 다시 시도'); });
+  return as.chain;
+}
+function flushLogSaves(){
+  return Promise.all([...LOG_CTX.cards].filter(c => c._as && c._as.pending).map(c => saveCard(c)));
+}
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'hidden') flushLogSaves(); });
+window.addEventListener('pagehide', ()=> flushLogSaves());
+
+function setupProgramCard(card, item, kind){
+  const sec = normSec(item.section);
+  const roundRe = new RegExp('^' + escRe(item.name) + ' - (\\d+)R$');
+  const owns = kind === 'std' ? (r => normSec(r.section) === sec && r.item_name === item.name)
+    : kind === 'round' ? (r => normSec(r.section) === sec && (r.item_name === item.name || roundRe.test(r.item_name)))
+    : (r => normSec(r.section) === sec && (r.item_name === item.name || r.item_name.startsWith(item.name + ' - ')));
+  card._restore = recs => restoreProgramCard(card, item, kind, recs, roundRe);
+  attachAutosave(card, { collect: (date, name)=> collectProgramCard(card, item, date, name), owns });
+}
+
+function collectProgramCard(c, item, date, name){
+  const records = [];
+  if(c.querySelector('.skip-check').checked){
+    const skipReason = c.querySelector('.skip-reason').value.trim();
+    return [{ date, name, item_name: item.name, section: normSec(item.section), type: item.type, value: '생략', scaled: true, scale_detail: skipReason ? '생략: ' + skipReason : '생략함', skipped: true }];
+  }
+  const scaled = c.querySelector('.scale-check').checked;
+  const scaleDetail = scaled ? c.querySelector('.scale-detail').value.trim() : '';
+  if(item.type === 'barbell_conditioning'){
+    c.querySelectorAll('.movement-row').forEach(row=>{
+      const mName = row.querySelector('.movement-name').value.trim();
+      const mWeight = row.querySelector('.movement-weight').value;
+      const mUnit = row.querySelector('.movement-unit').value;
+      const mStatus = row.querySelector('.movement-status').value;
+      if(!mName || !mWeight) return;
+      setPreferredUnit(mUnit);
+      const kgValue = Math.round(toKg(parseFloat(mWeight), mUnit) * 100) / 100;
+      records.push({ date, name, item_name: item.name + ' - ' + mName, section: normSec(item.section), type: 'weight', value: kgValue.toString(), scaled: !!scaleDetail || !!mStatus, scale_detail: [scaleDetail, mStatus].filter(Boolean).join(' / '), skipped: false });
+    });
+    return records;
+  }
+  if(item.type === 'amrap_by_round' || item.type === 'weight_by_round' || item.type === 'emom_by_round'){
+    c.querySelectorAll('.round-row').forEach(row=>{
+      const r = row.dataset.round;
+      const inp = row.querySelector('.round-input');
+      let val = inp ? String(inp.value).trim() : '';
+      if(!val) return;
+      let recType = 'reps';
+      if(item.type === 'weight_by_round'){
+        const unitSel = row.querySelector('.round-unit');
+        const unit = unitSel ? unitSel.value : 'kg';
+        setPreferredUnit(unit);
+        val = (Math.round(toKg(parseFloat(val), unit) * 100) / 100).toString();
+        recType = 'weight';
+      } else if(item.type === 'emom_by_round'){
+        recType = 'status';
+      }
+      records.push({ date, name, item_name: item.name + ' - ' + r + 'R', section: normSec(item.section), type: recType, value: val, scaled: !!scaleDetail, scale_detail: scaleDetail, skipped: false });
+    });
+    return records;
+  }
+  let value = '';
+  let detail = scaleDetail;
+  if(item.type === 'for_time'){
+    const min = c.querySelector('.rec-min').value;
+    const sec = c.querySelector('.rec-sec').value;
+    const done = c.querySelector('.done-check');
+    if(c.querySelector('.cap-check') && c.querySelector('.cap-check').checked) value = 'CAP +' + (parseInt(c.querySelector('.cap-reps').value) || 0);
+    else value = (min || sec) ? (parseInt(min) || 0) + ':' + String(parseInt(sec) || 0).padStart(2, '0') : ((done && done.checked) ? '완료' : '');
+  } else if(item.type === 'weight'){
+    const inp = c.querySelector('.rec-input');
+    const unitSel = c.querySelector('.unit-select');
+    if(inp && inp.value){
+      const unit = unitSel ? unitSel.value : 'kg';
+      setPreferredUnit(unit);
+      value = (Math.round(toKg(parseFloat(inp.value), unit) * 100) / 100).toString();
+      const rm = parseRm(item.prescribed);
+      if(rm){ const d = { spec: rm === 'S' ? '탑 싱글' : rm + 'RM', rm }; if(scaleDetail) d.notes = scaleDetail; detail = '§' + JSON.stringify(d); }
+    }
+  } else if(item.type === 'distance'){
+    const n = parseFloat(c.querySelector('.rec-input').value);
+    if(!isNaN(n)) value = n + c.querySelector('.dist-unit').value;
+  } else if(item.type === 'calories'){
+    const machines = c._machines || [];
+    const rowsV = [...c.querySelectorAll('.cal-rows > div')].map(r => [...r.querySelectorAll('.cal-in')].map(x => { const n = parseFloat(x.value); return isNaN(n) ? null : n; }));
+    const flat = rowsV.flat().filter(n => n != null);
+    if(flat.length){
+      const total = flat.reduce((a, b) => a + b, 0);
+      value = total + ' cal';
+      const setsDone = rowsV.filter(r => r.some(n => n != null));
+      let spec;
+      if(machines.length > 1){
+        const per = machines.map((m, i) => m + ' ' + rowsV.reduce((a, r) => a + (r[i] || 0), 0));
+        spec = per.join(' · ') + ' · ' + setsDone.length + '세트';
+      } else {
+        spec = '세트별 ' + rowsV.map(r => r[0] == null ? '-' : r[0]).join(' · ') + ' · 평균 ' + Math.round(total / setsDone.length * 10) / 10;
+      }
+      const d = { spec, cals: rowsV, machines };
+      if(scaleDetail) d.notes = scaleDetail;
+      detail = '§' + JSON.stringify(d);
+    }
+  } else if(item.type === 'note'){
+    const t = String(c.querySelector('.rec-input').value).trim();
+    if(t){ value = '완료'; detail = t; }
+  } else if(item.type === 'check'){
+    if(c.querySelector('.rec-check').checked) value = '완료';
+  } else {
+    const inp = c.querySelector('.rec-input');
+    value = inp ? String(inp.value).trim() : '';
+  }
+  if(value) records.push({ date, name, item_name: item.name, section: normSec(item.section), type: item.type, value, scaled: !!(parsePersonalDetail({ scale_detail: detail }) ? parsePersonalDetail({ scale_detail: detail }).notes : detail), scale_detail: detail, skipped: false });
+  return records;
+}
+
+function restoreProgramCard(c, item, kind, recs, roundRe){
+  const skipRec = recs.find(r => r.skipped);
+  if(skipRec){
+    const sc = c.querySelector('.skip-check');
+    sc.checked = true; sc.onchange && sc.onchange();
+    const rs = String(skipRec.scale_detail || '').replace(/^생략:\s*/, '');
+    if(rs && rs !== '생략함') c.querySelector('.skip-reason').value = rs;
+    return;
+  }
+  const showDetail = d => { if(!d) return; const ck = c.querySelector('.scale-check'); ck.checked = true; ck.onchange && ck.onchange(); c.querySelector('.scale-detail').value = d; };
+  if(kind === 'round'){
+    recs.forEach(r=>{
+      const m = r.item_name.match(roundRe);
+      if(!m) return;
+      const row = c.querySelector('.round-row[data-round="' + m[1] + '"]');
+      if(!row) return;
+      const inp = row.querySelector('.round-input');
+      if(item.type === 'weight_by_round'){ const u = row.querySelector('.round-unit').value; inp.value = round1(fromKg(parseFloat(r.value) || 0, u)); }
+      else inp.value = r.value;
+    });
+    showDetail((recs.find(r => r.scale_detail) || {}).scale_detail);
+    return;
+  }
+  if(kind === 'barbell'){
+    const statuses = ['전체 언브로큰', '일부 브로큰'];
+    let common = '';
+    const rows = [...c.querySelectorAll('.movement-row')];
+    recs.forEach(r=>{
+      const mName = r.item_name.slice(item.name.length + 3);
+      let row = rows.find(x => x.querySelector('.movement-name').value.trim() === mName && !x._filled);
+      if(!row){ c._addRow(mName); const all = c.querySelectorAll('.movement-row'); row = all[all.length - 1]; }
+      row._filled = true;
+      const u = row.querySelector('.movement-unit').value;
+      row.querySelector('.movement-weight').value = round1(fromKg(parseFloat(r.value) || 0, u));
+      const parts = String(r.scale_detail || '').split(' / ').filter(Boolean);
+      if(parts.length && statuses.includes(parts[parts.length - 1])) row.querySelector('.movement-status').value = parts.pop();
+      if(parts.length) common = parts.join(' / ');
+    });
+    showDetail(common);
+    return;
+  }
+  const r = recs[recs.length - 1];
+  const pd = parsePersonalDetail(r);
+  const notes = pd ? (pd.notes || '') : (r.scale_detail || '');
+  if(item.type === 'weight'){
+    const u = c.querySelector('.unit-select').value;
+    c.querySelector('.rec-input').value = round1(fromKg(parseFloat(r.value) || 0, u));
+  } else if(item.type === 'for_time'){
+    const m = String(r.value).match(/^(\d+):(\d{1,2})$/);
+    const cm = String(r.value).match(/^CAP \+(\d+)/);
+    if(cm){ c.querySelector('.cap-check').checked = true; c.querySelector('.cap-reps').value = cm[1]; c._syncCap && c._syncCap(); }
+    else if(m && !(+m[1] === 0 && +m[2] === 0)){ c.querySelector('.rec-min').value = +m[1]; c.querySelector('.rec-sec').value = +m[2]; }
+    else { const d = c.querySelector('.done-check'); if(d) d.checked = true; }
+  } else if(item.type === 'distance'){
+    const m = String(r.value).match(/^([\d.]+)\s*(cm|m|ft)$/);
+    if(m){ c.querySelector('.rec-input').value = m[1]; c.querySelector('.dist-unit').value = m[2]; }
+  } else if(item.type === 'calories'){
+    const cals = (pd && pd.cals) || [];
+    while(c.querySelectorAll('.cal-rows > div').length < cals.length) c._calAdd();
+    const rowEls = c.querySelectorAll('.cal-rows > div');
+    cals.forEach((row, i)=>{
+      const vals = Array.isArray(row) ? row : [row];
+      const ins = rowEls[i].querySelectorAll('.cal-in');
+      vals.forEach((n, j)=>{ if(n != null && ins[j]) ins[j].value = n; });
+    });
+    c._calSum && c._calSum();
+  } else if(item.type === 'note'){
+    c.querySelector('.rec-input').value = r.scale_detail || '';
+    return;
+  } else if(item.type === 'check'){
+    c.querySelector('.rec-check').checked = r.value === '완료';
+  } else {
+    const inp = c.querySelector('.rec-input');
+    if(inp) inp.value = r.value;
+  }
+  showDetail(notes);
+}
+
+async function restoreLogRecords(date, name, personal){
+  const { data, error } = await sb.from('records').select('*').eq('date', date).eq('name', name).order('id');
+  if(error || LOG_CTX.date !== date || LOG_CTX.name !== name) return;
+  const progCards = [...LOG_CTX.cards].filter(c => !c._as.byId);
+  const byCard = new Map();
+  (data || []).forEach(r=>{
+    if(r.section === PERSONAL_SECTION){
+      const card = personal.restore(r);
+      if(card){ card._as.ids = [r.id]; card._as.last = JSON.stringify(card._as.collect(date, name)); setSaveStatus(card, 'ok', '저장된 기록'); }
+      return;
+    }
+    const c = progCards.find(x => x._as.owns(r));
+    if(!c) return;
+    if(!byCard.has(c)) byCard.set(c, []);
+    byCard.get(c).push(r);
+  });
+  byCard.forEach((recs, c)=>{
+    if(c._as.pending || c._as.last !== null) return;
+    try { c._restore && c._restore(recs); } catch(e){ console.warn('restore failed', e); }
+    c._as.ids = recs.map(r => r.id);
+    const now = c._as.collect(date, name);
+    c._as.last = JSON.stringify(now);
+    setSaveStatus(c, 'ok', '저장된 기록');
+    const dup = new Set(recs.map(r => r.item_name)).size !== recs.length;
+    if(dup && now.length){ c._as.last = null; saveCard(c); }
+  });
+}
+
+async function buildWhoBar(date){
+  const wrap = document.createElement('div');
+  wrap.className = 'card';
+  wrap.style.cssText = 'margin:0 0 16px;';
+  const saved = localStorage.getItem('bruteLogName') || '';
+  LOG_CTX.name = '';
+  const rerender = ()=> renderLogForm(LOG_CTX.date);
+  const askName = ()=>{
+    wrap.innerHTML = '<div style="display:flex; gap:8px;"><input type="text" class="who-input" list="log-names" placeholder="이름 입력" style="flex:1; min-width:0;" /><button type="button" class="primary who-ok" style="flex-shrink:0;">확인</button></div>'
+      + '<p class="muted" style="font-size:13px; margin:6px 0 0;">한 번 입력하면 이 기기에서는 계속 이 이름으로 기록돼요.</p>';
+    let dl = document.getElementById('log-names');
+    if(!dl){ dl = document.createElement('datalist'); dl.id = 'log-names'; document.body.appendChild(dl); }
+    sb.from('records').select('name').then(({ data })=>{ dl.innerHTML = [...new Set((data || []).map(r => r.name).filter(Boolean))].sort().map(n => '<option value="' + escapeAttr(n) + '"></option>').join(''); });
+    const inp = wrap.querySelector('.who-input');
+    const ok = ()=>{
+      const n = inp.value.trim();
+      if(!n) return;
+      localStorage.setItem('bruteLogName', n);
+      rerender();
+    };
+    wrap.querySelector('.who-ok').onclick = ok;
+    inp.onkeydown = e => { if(e.key === 'Enter') ok(); };
+  };
+  const askPin = (n)=>{
+    wrap.innerHTML = '<div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;"><span class="muted" style="font-size:14px;">기록하는 사람</span><strong style="font-size:16px; font-weight:600; flex:1;">' + escapeHtml(n) + '</strong><button type="button" class="who-change" style="height:32px; font-size:14px; padding:0 12px;">변경</button></div>'
+      + '<p class="muted" style="font-size:13px; margin:0 0 8px;">비공개 프로필이라 이 폰에서 PIN을 한 번 넣어야 기록할 수 있어요.</p>'
+      + '<div style="display:flex; gap:8px;"><input type="password" inputmode="numeric" maxlength="4" class="who-pin" placeholder="PIN 4자리" style="width:130px; text-align:center; letter-spacing:0.2em;" /><button type="button" class="primary who-pin-ok">확인</button></div>'
+      + '<span class="status who-st"></span>';
+    wrap.querySelector('.who-change').onclick = ()=>{ localStorage.removeItem('bruteLogName'); rerender(); };
+    const pin = wrap.querySelector('.who-pin');
+    const go = async ()=>{
+      const { data, error } = await sb.rpc('profile_unlock', { p_name: n, p_pin: pin.value.trim() });
+      if(!error && data && (data.ok || data.error === 'NO_PIN')){ if(data.token) setProfileToken(n, data.token); rerender(); return; }
+      const st = wrap.querySelector('.who-st');
+      st.className = 'status err';
+      st.textContent = error ? '확인에 실패했어요: ' + error.message : pinErrorMessage(data);
+      pin.value = '';
+    };
+    wrap.querySelector('.who-pin-ok').onclick = go;
+    pin.onkeydown = e => { if(e.key === 'Enter') go(); };
+  };
+  if(!saved){ askName(); return wrap; }
+  const setting = await getProfileSetting(saved);
+  if(setting && setting.is_private && !(await canViewProfile(saved, setting))){ askPin(saved); return wrap; }
+  LOG_CTX.name = saved;
+  wrap.innerHTML = '<div style="display:flex; align-items:center; gap:10px;"><span class="muted" style="font-size:14px;">기록하는 사람</span><strong style="font-size:16px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;">' + escapeHtml(saved) + '</strong><button type="button" class="who-change" style="height:32px; font-size:14px; padding:0 12px;">변경</button></div>'
+    + '<p class="muted" style="font-size:13px; margin:6px 0 0;">입력하면 카드마다 자동으로 저장돼요.</p>';
+  wrap.querySelector('.who-change').onclick = async ()=>{ await flushLogSaves(); localStorage.removeItem('bruteLogName'); rerender(); };
+  return wrap;
 }
 
 async function renderLogForm(date){
   const el = document.getElementById('log-form');
+  await flushLogSaves();
+  LOG_CTX.cards.clear();
+  LOG_CTX.date = date;
+  const renderToken = ++LOG_CTX.token;
   el.innerHTML = '<p class="muted">불러오고 있어요...</p>';
   const { data, error } = await sb.from('programs').select('*').eq('date', date).single();
+  if(renderToken !== LOG_CTX.token) return;
   const program = (error || !data) ? { items: [] } : data;
   el.innerHTML = '';
   if(!program.items || !program.items.length){
@@ -1488,11 +2103,9 @@ async function renderLogForm(date){
   }
 
 
-  const nameWrap = document.createElement('div');
-  nameWrap.style.marginBottom = "16px";
-  nameWrap.innerHTML = `<label>이름</label><input type="text" id="log-username" class="name-input" placeholder="이름을 입력해주세요" />`;
-  el.appendChild(nameWrap);
-  setTimeout(()=> setupWeightHints(el, program, date), 0);
+  const who = await buildWhoBar(date);
+  if(renderToken !== LOG_CTX.token) return;
+  el.prepend(who);
 
   // section별로 큰 박스, 그 안에서 subsection별로 소분류
   const bySection = {};
@@ -1532,9 +2145,27 @@ async function renderLogForm(date){
         sectionBox.appendChild(subTitle);
       }
 
+      if(subItems.length >= 2 && subItems.every(x => x.type === 'for_time') && subItems.slice(0, -1).some(x => parseRestSec(x.prescribed) > 0)){
+        sectionBox.appendChild(buildMultiPartCard(subItems, subName, sectionName));
+        return;
+      }
       subItems.forEach(it=>{
         const idx = it.idx;
 
+        if(/warm\s*-?\s*up/i.test(normSec(it.section))){
+          const info = document.createElement('div');
+          info.className = 'card';
+          info.style.marginLeft = '0';
+          info.innerHTML = (it.name && !isSameLabel(it.name, it.section) ? '<div style="margin-bottom:8px;"><span class="item-name">' + escapeHtml(it.name) + '</span></div>' : '')
+            + '<div class="muted" style="margin:0; line-height:1.55;">' + formatPrescribed(it.prescribed) + '</div>';
+          sectionBox.appendChild(info);
+          return;
+        }
+
+        if(it.type === 'for_time' && repeatSetsCount(it)){
+          sectionBox.appendChild(buildRepeatSetCard(it));
+          return;
+        }
         if(it.type === 'barbell_conditioning'){
           sectionBox.appendChild(buildBarbellConditioningCard(it, idx, subName));
           return;
@@ -1553,17 +2184,26 @@ async function renderLogForm(date){
         let inputHtml = '';
         const prefUnit = getPreferredUnit();
         if(it.type === 'weight'){
-          inputHtml = `<input type="number" step="0.1" placeholder="무게" class="rec-input" style="width:110px;" />
+          inputHtml = `<input type="number" step="0.1" placeholder="${isAddedWeight(it.name) ? '추가 무게' : '무게'}" class="rec-input" style="width:110px;" />
             <select class="unit-select" style="width:80px;">
               <option value="lb" ${prefUnit==='lb'?'selected':''}>lb</option>
               <option value="kg" ${prefUnit==='kg'?'selected':''}>kg</option>
             </select>`;
         } else if(it.type === 'for_time'){
-          inputHtml = `<div style="display:flex; gap:4px; align-items:center;"><input type="number" placeholder="분" class="rec-min" style="width:60px;" /><span style="font-size:15px;">:</span><input type="number" placeholder="초" class="rec-sec" style="width:60px;" /></div>`;
+          const capS = parseCapSec(it.prescribed);
+          inputHtml = `<div class="time-wrap" style="display:flex; gap:4px; align-items:center;"><input type="number" inputmode="numeric" placeholder="분" class="rec-min" style="width:60px;" /><span style="font-size:15px;">:</span><input type="number" inputmode="numeric" placeholder="초" class="rec-sec" style="width:60px;" /></div><input type="number" inputmode="numeric" class="cap-reps" placeholder="완료한 개수" style="width:120px; display:none;" /><label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="cap-check" style="width:auto; height:auto;" />타임캡${capS ? '(' + fmtClock(capS) + ')' : ''} 걸림</label><label class="done-wrap" style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="done-check" style="width:auto; height:auto;" />시간 없이 완료</label>`;
         } else if(it.type === 'amrap'){
           inputHtml = `<input type="text" placeholder="예: 5라운드+3렙" class="rec-input" style="width:160px;" />`;
         } else if(it.type === 'emom_complete'){
           inputHtml = `<select class="rec-input" style="width:140px;"><option value="">완료 여부</option><option value="전체 완료">전체 완료</option><option value="일부 실패">일부 실패</option></select>`;
+        } else if(it.type === 'distance'){
+          inputHtml = `<input type="number" step="0.1" inputmode="decimal" placeholder="거리" class="rec-input" style="width:100px;" /><select class="dist-unit" style="width:70px;"><option value="cm">cm</option><option value="m">m</option><option value="ft">ft</option></select>`;
+        } else if(it.type === 'calories'){
+          inputHtml = `<div style="display:flex; flex-direction:column; gap:6px; width:100%;"><div class="cal-rows" style="display:flex; flex-direction:column; gap:6px;"></div><div style="display:flex; align-items:center; justify-content:space-between; gap:8px;"><button type="button" class="cal-add" style="height:32px; font-size:14px;">+ 세트</button><span class="cal-sum" style="font-size:15px; font-weight:600;"></span></div></div>`;
+        } else if(it.type === 'note'){
+          inputHtml = `<textarea class="rec-input" rows="3" placeholder="오늘 한 내용, 어디까지 됐는지" style="width:100%; font-size:15px; resize:vertical;"></textarea>`;
+        } else if(it.type === 'check'){
+          inputHtml = `<label style="display:flex; align-items:center; gap:6px; font-size:15px; margin:0;"><input type="checkbox" class="rec-check" style="width:auto; height:auto;" />완료</label>`;
         } else {
           inputHtml = `<input type="text" placeholder="기록" class="rec-input" style="width:130px;" />`;
         }
@@ -1573,7 +2213,6 @@ async function renderLogForm(date){
             <span class="item-name">${it.name}</span>
           </div>
           <div class="muted" style="margin:0 0 10px; line-height:1.55;">${formatPrescribed(it.prescribed)}</div>
-          ${it.type === 'weight' ? '<div class="calc-hint" style="display:flex; flex-direction:column; gap:2px; font-size:14px; line-height:1.5; margin:0 0 10px;"></div>' : ''}
           <div class="row" style="margin-bottom:8px;">
             <label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="skip-check" style="width:auto; height:auto;" />오늘 생략</label>
           </div>
@@ -1600,6 +2239,8 @@ async function renderLogForm(date){
           revealToggle(recordInputWrap, !skipCheck.checked);
         };
 
+        initStdInputs(card, program.items[idx]);
+        setupProgramCard(card, program.items[idx], 'std');
         sectionBox.appendChild(card);
       });
     });
@@ -1682,6 +2323,8 @@ async function renderLogForm(date){
       revealToggle(recordInputWrap, !skipCheck.checked);
     };
 
+    card._addRow = addMovementRow;
+    setupProgramCard(card, program.items[idx], 'barbell');
     return card;
   }
 
@@ -1759,121 +2402,15 @@ async function renderLogForm(date){
       revealToggle(recordInputWrap, !skipCheck.checked);
     };
 
+    setupProgramCard(card, program.items[idx], 'round');
     return card;
   }
 
   const personal = buildPersonalSection(program.items);
   el.appendChild(personal.box);
 
-  const saveWrap = document.createElement('div');
-  saveWrap.className = 'row';
-  saveWrap.style.marginTop = '16px';
-  saveWrap.innerHTML = `<button class="primary" id="log-save-btn">저장하기</button><span class="status" id="log-save-status"></span>`;
-  el.appendChild(saveWrap);
-
-  document.getElementById('log-save-btn').onclick = async ()=>{
-    const saveBtn = document.getElementById('log-save-btn');
-    const status = document.getElementById('log-save-status');
-    if(saveBtn.disabled) return;
-    const name = document.getElementById('log-username').value.trim();
-    if(!name){ status.textContent = "이름을 입력해주세요"; status.className = "status err"; return; }
-    saveBtn.disabled = true;
-    status.textContent = "저장하고 있어요..."; status.className = "status";
-    const cards = el.querySelectorAll('[data-idx]');
-    const records = [];
-    cards.forEach(c=>{
-      const idx = parseInt(c.dataset.idx);
-      const item = program.items[idx];
-      const skipped = c.querySelector('.skip-check').checked;
-
-      if(skipped){
-        const skipReason = c.querySelector('.skip-reason').value.trim();
-        records.push({
-          date, name, item_name: item.name, section: item.section, type: item.type,
-          value: '생략', scaled: true, scale_detail: skipReason ? `생략: ${skipReason}` : '생략함', skipped: true
-        });
-        return;
-      }
-
-      const scaled = c.querySelector('.scale-check').checked;
-      const scaleDetail = c.querySelector('.scale-detail').value.trim();
-
-      if(item.type === 'barbell_conditioning'){
-        const rows = c.querySelectorAll('.movement-row');
-        rows.forEach(row=>{
-          const mName = row.querySelector('.movement-name').value.trim();
-          const mWeight = row.querySelector('.movement-weight').value;
-          const mUnit = row.querySelector('.movement-unit').value;
-          const mStatus = row.querySelector('.movement-status').value;
-          if(!mName || !mWeight) return;
-          setPreferredUnit(mUnit);
-          const kgValue = Math.round(toKg(parseFloat(mWeight), mUnit) * 100) / 100;
-          records.push({
-            date, name, item_name: `${item.name} - ${mName}`, section: item.section, type: 'weight',
-            value: kgValue.toString(), scaled: scaled || !!mStatus,
-            scale_detail: [scaleDetail, mStatus].filter(Boolean).join(' / '),
-            skipped: false
-          });
-        });
-        return;
-      }
-
-      if(item.type === 'amrap_by_round' || item.type === 'weight_by_round' || item.type === 'emom_by_round'){
-        const rows = c.querySelectorAll('.round-row');
-        rows.forEach(row=>{
-          const r = row.dataset.round;
-          const inp = row.querySelector('.round-input');
-          let val = inp ? inp.value : '';
-          if(!val) return;
-
-          let recType = 'reps';
-          if(item.type === 'weight_by_round'){
-            const unitSel = row.querySelector('.round-unit');
-            const unit = unitSel ? unitSel.value : 'kg';
-            setPreferredUnit(unit);
-            val = (Math.round(toKg(parseFloat(val), unit) * 100) / 100).toString();
-            recType = 'weight';
-          } else if(item.type === 'emom_by_round'){
-            recType = 'status';
-          }
-
-          records.push({
-            date, name, item_name: `${item.name} - ${r}R`, section: item.section, type: recType,
-            value: val, scaled, scale_detail: scaleDetail, skipped: false
-          });
-        });
-        return;
-      }
-
-      let value = '';
-      if(item.type === 'for_time'){
-        const min = c.querySelector('.rec-min').value || '0';
-        const sec = c.querySelector('.rec-sec').value || '0';
-        value = `${min}:${sec.padStart(2,'0')}`;
-      } else if(item.type === 'weight'){
-        const inp = c.querySelector('.rec-input');
-        const unitSel = c.querySelector('.unit-select');
-        if(inp && inp.value){
-          const rawNum = parseFloat(inp.value);
-          const unit = unitSel ? unitSel.value : 'kg';
-          setPreferredUnit(unit);
-          value = (Math.round(toKg(rawNum, unit) * 100) / 100).toString();
-        }
-      } else {
-        const inp = c.querySelector('.rec-input');
-        value = inp ? inp.value : '';
-      }
-      if(value) records.push({
-        date, name, item_name: item.name, section: item.section, type: item.type,
-        value, scaled, scale_detail: scaleDetail, skipped: false
-      });
-    });
-    records.push(...personal.collect(date, name));
-    if(records.length === 0){ status.textContent = "기록을 최소 1개 이상 입력해주세요"; status.className = "status err"; saveBtn.disabled = false; return; }
-    const { error } = await sb.from('records').insert(records);
-    if(error){ status.textContent = "저장에 실패했어요: " + error.message; status.className = "status err"; saveBtn.disabled = false; return; }
-    status.textContent = "저장했어요"; status.className = "status ok";
-  };
+  if(renderToken !== LOG_CTX.token) return;
+  if(LOG_CTX.name) await restoreLogRecords(date, LOG_CTX.name, personal);
 }
 
 async function renderBoard(){
@@ -1999,8 +2536,13 @@ async function renderBoard(){
         } else if(io.type === 'status'){
           sorted = active.slice().sort((a,b)=> a.name.localeCompare(b.name));
         } else if(io.type === 'for_time'){
-          const toSeconds = (v)=>{ const [m,s] = v.split(':').map(Number); return (m||0)*60 + (s||0); };
+          const toSeconds = (v)=>{ if(!/^\d+:\d+$/.test(String(v)) || /^0+:0+$/.test(String(v))) return Infinity; const [m,s] = String(v).split(':').map(Number); return m*60 + s; };
           sorted = active.slice().sort((a,b)=> toSeconds(a.value) - toSeconds(b.value));
+        } else if(io.type === 'calories'){
+          sorted = active.slice().sort((a,b)=> (parseFloat(b.value)||0) - (parseFloat(a.value)||0));
+        } else if(io.type === 'distance'){
+          const toCm = v => { const m = String(v).match(/^([\d.]+)\s*(cm|m|ft)$/); return m ? +m[1] * (m[2] === 'm' ? 100 : m[2] === 'ft' ? 30.48 : 1) : -1; };
+          sorted = active.slice().sort((a,b)=> toCm(b.value) - toCm(a.value));
         } else {
           sorted = active.slice().sort((a,b)=> a.name.localeCompare(b.name));
         }
@@ -2473,15 +3015,16 @@ function renderProfileBody(unit){
 
   const byItem = {};
   data.forEach(r=>{
-    if(!byItem[r.item_name]) byItem[r.item_name] = [];
-    byItem[r.item_name].push(r);
+    const k = String(r.item_name).replace(/ - \d+R$/, '');
+    if(!byItem[k]) byItem[k] = [];
+    byItem[k].push(r);
   });
 
   // 항목을 section별로 묶어서 보여준다 (섹션은 그 항목의 가장 최근 기록 기준).
   const bySection = {};
   const sectionOrder = [];
   Object.entries(byItem).forEach(([itemName, records])=>{
-    const sec = records[records.length - 1].section || '기타';
+    const sec = normSec(records[records.length - 1].section) || '기타';
     if(!bySection[sec]){ bySection[sec] = []; sectionOrder.push(sec); }
     bySection[sec].push([itemName, records]);
   });
@@ -2510,29 +3053,71 @@ function renderProfileBody(unit){
       header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px;';
       header.innerHTML = `<span class="item-name">${itemName}</span>
         <span style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
-          <span class="muted">${records.length}회 기록</span>
+          <span class="muted">${new Set(records.map(r => r.date)).size}회 기록</span>
           <span class="muted" style="display:flex;">${CHEVRON_ICON_SVG}</span>
         </span>`;
       itemCard.appendChild(header);
 
-      const isWeightType = records.some(r => r.type === 'weight');
-      const numericRecords = records.filter(r => !r.skipped && (r.type === 'weight' || r.type === 'reps'));
+      const mains = records.filter(r => r.item_name === itemName);
+      const shown = mains.length ? mains : records;
+      const isWeightType = shown.some(r => r.type === 'weight');
+      const numericRecords = shown.filter(r => !r.skipped && (r.type === 'weight' || r.type === 'reps'));
       const isNumeric = numericRecords.length > 0;
-      itemCard.onclick = ()=> showProfileItemDetail(profileCurrentName, itemName, records, isWeightType, isNumeric);
+      const rmOf = r => { const pd = parsePersonalDetail(r); return pd && pd.rm != null ? String(pd.rm) : ''; };
+      const rmBest = {};
+      let latestRm = '';
+      shown.forEach(r=>{
+        if(r.skipped || r.type !== 'weight') return;
+        const k = rmOf(r);
+        if(!k) return;
+        latestRm = k;
+        const v = parseFloat(r.value);
+        if(!isNaN(v) && (rmBest[k] == null || v > rmBest[k])) rmBest[k] = v;
+      });
+      const rmKeys = Object.keys(rmBest).sort((a, b) => (a === 'S' ? 99 : +a) - (b === 'S' ? 99 : +b));
+      const openDetail = k => {
+        const list = k ? shown.filter(r => rmOf(r) === k) : shown;
+        showProfileItemDetail(profileCurrentName, itemName, list, isWeightType, isNumeric);
+      };
+      itemCard.onclick = ()=> openDetail(rmKeys.length > 1 ? latestRm : '');
+      if(rmKeys.length){
+        const rmLine = document.createElement('div');
+        rmLine.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px; margin:0 0 8px;';
+        const chip = (label, val, k)=>{
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.style.cssText = 'height:auto; font-size:13px; font-weight:400; padding:2px 8px; border-radius:999px; background:var(--surface-1); border:0.5px solid var(--border); box-shadow:none;';
+          b.innerHTML = '<span class="muted">' + label + '</span>' + (val ? ' <strong style="font-weight:600;">' + val + '</strong>' : '');
+          b.onclick = e => { e.stopPropagation(); openDetail(k); };
+          rmLine.appendChild(b);
+        };
+        rmKeys.forEach(k => chip(rmLabel(k), formatWeight(rmBest[k], unit), k));
+        if(rmKeys.length > 1) chip('전체 보기', '', '');
+        itemCard.appendChild(rmLine);
+      }
 
+      const fmtR = r => r.type === 'weight' ? fmtWeightRec(r, unit) : escapeHtml(r.value);
+      const roundNo = r => { const m = String(r.item_name).match(/ - (\d+)R$/); return m ? +m[1] : 0; };
       const recentList = document.createElement('div');
       recentList.style.marginBottom = '10px';
-      const recent = records.slice().reverse().slice(0, 3);
-      recent.forEach(r=>{
+      const dates = [...new Set(records.map(r => r.date))].sort().reverse().slice(0, 3);
+      dates.forEach(d=>{
+        const dayMain = mains.filter(r => r.date === d);
+        const r = dayMain[dayMain.length - 1];
+        const rounds = records.filter(x => x.date === d && x.item_name !== itemName).sort((a, b) => roundNo(a) - roundNo(b));
+        const roundText = rounds.filter(x => !x.skipped).map(x => '<span class="muted">' + roundNo(x) + 'R</span> ' + fmtR(x)).join(' · ');
         const line = document.createElement('div');
-        line.style.cssText = 'font-size:15px; margin-bottom:4px;';
-        if(r.skipped){
+        line.style.cssText = 'font-size:15px; margin-bottom:6px;';
+        if(r && r.skipped){
           line.style.color = 'var(--text-muted)';
-          line.innerHTML = `<span class="muted">${r.date}</span> — 생략${r.scale_detail ? ' ('+r.scale_detail.replace('생략: ','')+')' : ''}`;
+          const rs = String(r.scale_detail || '').replace(/^생략:\s*/, '');
+          line.innerHTML = '<span class="muted">' + d + '</span> — 생략' + (rs && rs !== '생략함' ? ' · ' + escapeHtml(rs) : '');
+        } else if(r){
+          const detailTag = personalDetailHtml(r, unit) ?? (r.scaled && r.scale_detail ? '<div style="margin-top:4px;"><span class="tag scaled" style="white-space:normal;">※ ' + escapeHtml(r.scale_detail) + '</span></div>' : '');
+          line.innerHTML = '<span class="muted">' + d + '</span> — <strong style="font-weight:500;">' + fmtR(r) + '</strong>'
+            + (roundText ? '<div style="font-size:13px; margin-top:2px;">' + roundText + '</div>' : '') + detailTag;
         } else {
-          const detailTag = personalDetailHtml(r, unit) ?? (r.scaled ? `<div style="margin-top:4px;"><span class="tag scaled">※${r.scale_detail ? ' '+r.scale_detail : ''}</span></div>` : '');
-          const displayValue = r.type === 'weight' ? formatWeight(parseFloat(r.value) || 0, unit) : r.value;
-          line.innerHTML = `<span class="muted">${r.date}</span> — <strong style="font-weight:500;">${displayValue}</strong>${detailTag}`;
+          line.innerHTML = '<span class="muted">' + d + '</span> — <span style="font-size:14px;">' + roundText + '</span>';
         }
         recentList.appendChild(line);
       });
@@ -3181,14 +3766,18 @@ function buildDateLookupBox(records, unit){
     if(program && program.items){
       program.items.forEach(it=>{
         if(it.type === 'barbell_conditioning' && it.movements){
-          it.movements.forEach(m=> itemOrder.push({ key: `${it.name} - ${m}`, section: it.section }));
+          it.movements.forEach(m=> itemOrder.push({ key: `${it.name} - ${m}`, section: it.section, roundGroup: it.name, item: it }));
         } else if((it.type === 'amrap_by_round' || it.type === 'weight_by_round' || it.type === 'emom_by_round') && it.rounds){
           const totalRounds = parseInt(it.rounds);
           for(let r = 1; r <= totalRounds; r++){
-            itemOrder.push({ key: `${it.name} - ${r}R`, section: it.section, roundGroup: it.name, isLastRound: r === totalRounds });
+            itemOrder.push({ key: `${it.name} - ${r}R`, section: it.section, roundGroup: it.name, isLastRound: r === totalRounds, item: it });
           }
+        } else if(it.type === 'for_time' && repeatSetsCount(it)){
+          const n = repeatSetsCount(it);
+          for(let r = 1; r <= n; r++) itemOrder.push({ key: `${it.name} - ${r}R`, section: it.section, roundGroup: it.name, item: it });
+          itemOrder.push({ key: it.name, section: it.section, roundGroup: it.name, item: it });
         } else {
-          itemOrder.push({ key: it.name, section: it.section });
+          itemOrder.push({ key: it.name, section: it.section, item: it });
         }
       });
     }
@@ -3210,76 +3799,118 @@ function buildDateLookupBox(records, unit){
     // 섹션 등장 순서(첫 등장 기준)를 뽑는다
     const sectionOrder = [];
     itemOrder.forEach(io=>{
-      const sec = io.section || '기타';
+      const sec = normSec(io.section) || '기타';
       if(!sectionOrder.includes(sec)) sectionOrder.push(sec);
     });
 
     resultEl.innerHTML = '';
+    const fmtVal = r => r.type === 'weight' ? fmtWeightRec(r, unit)
+      : ((r.type === 'for_time' && /^0+:0+$/.test(String(r.value))) ? '완료' : escapeHtml(r.value));
+    const skipReason = r => { const d = String(r.scale_detail || '').replace(/^생략:\s*/, ''); return d && d !== '생략함' ? d : ''; };
+    const noteHtml = r => {
+      if(r.skipped) return '';
+      const pd = personalDetailHtml(r, unit);
+      if(pd != null) return pd;
+      return (r.scaled && r.scale_detail) ? '<div style="margin-top:6px;"><span class="tag scaled" style="white-space:normal;">※ ' + escapeHtml(r.scale_detail) + '</span></div>' : '';
+    };
+
+    const editButtons = (r, line, textSpan)=>{
+      const editBtn = document.createElement('button');
+      editBtn.textContent = '수정';
+      editBtn.style.cssText = 'height:28px; font-size:14px; padding:0 10px; flex-shrink:0;';
+      editBtn.onclick = ()=> startEditRecord(r, line, textSpan, unit, ()=> renderForDate(date), ()=>{
+        const idx = records.indexOf(r);
+        if(idx !== -1) records.splice(idx, 1);
+        renderForDate(date);
+      });
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = '삭제';
+      deleteBtn.className = 'danger';
+      deleteBtn.style.cssText = 'height:28px; font-size:14px; padding:0 10px; flex-shrink:0;';
+      deleteBtn.onclick = async ()=>{
+        if(!confirm(r.item_name + ' 기록을 삭제할까요? 삭제하면 되돌릴 수 없어요.')) return;
+        const { error } = await sb.from('records').delete().eq('id', r.id);
+        if(error){ alert('삭제에 실패했어요: ' + error.message); return; }
+        const idx = records.indexOf(r);
+        if(idx !== -1) records.splice(idx, 1);
+        renderForDate(date);
+      };
+      const g = document.createElement('div');
+      g.style.cssText = 'display:flex; gap:6px; flex-shrink:0;';
+      g.appendChild(editBtn);
+      g.appendChild(deleteBtn);
+      return g;
+    };
+
     sectionOrder.forEach(sectionName=>{
-      const itemsInSection = itemOrder.filter(io => (io.section || '기타') === sectionName && byItemName[io.key] && byItemName[io.key].length > 0);
+      const isWarm = io => io.item && /warm\s*-?\s*up/i.test(normSec(io.section));
+      const itemsInSection = itemOrder.filter(io => (normSec(io.section) || '기타') === sectionName && ((byItemName[io.key] && byItemName[io.key].length > 0) || isWarm(io)));
       if(itemsInSection.length === 0) return;
 
       const sectionBox = document.createElement('div');
-      sectionBox.style.cssText = 'margin-bottom:12px;';
+      sectionBox.style.cssText = 'margin-top:18px;';
       const sTitle = document.createElement('p');
-      sTitle.style.cssText = 'font-weight:500; font-size:16px; margin:0 0 6px;';
-      sTitle.textContent = sectionName;
+      sTitle.className = 'eyebrow';
+      sTitle.style.cssText = 'margin:0 0 4px;';
+      sTitle.textContent = stripLabelPrefix(sectionName).toUpperCase();
       sectionBox.appendChild(sTitle);
 
+      // 같은 항목(라운드별·바벨 동작)은 한 블록으로 묶는다
+      const groups = [];
       itemsInSection.forEach(io=>{
-        byItemName[io.key].forEach(r=>{
+        const gName = io.roundGroup || io.key;
+        let g = groups.find(x => x.name === gName);
+        if(!g){ g = { name: gName, item: io.item, rows: [] }; groups.push(g); }
+        (byItemName[io.key] || []).forEach(r => g.rows.push({ r, label: io.roundGroup ? (io.key === io.roundGroup ? '총' : io.key.slice(io.roundGroup.length + 3)) : '' }));
+      });
+
+      groups.forEach(g=>{
+        const block = document.createElement('div');
+        block.style.cssText = 'padding:12px 0; border-top:0.5px solid var(--border);';
+        const allSkipped = g.rows.length > 0 && g.rows.every(x => x.r.skipped);
+        const single = g.rows.length === 1 && !g.rows[0].label;
+
+        const head = document.createElement('div');
+        head.style.cssText = 'display:flex; align-items:baseline; gap:10px;';
+        const nameEl = document.createElement('span');
+        nameEl.style.cssText = 'flex:1; min-width:0; font-size:15px; font-weight:500;' + (allSkipped ? ' color:var(--text-muted);' : '');
+        nameEl.textContent = g.name;
+        head.appendChild(nameEl);
+        block.appendChild(head);
+
+        const addRow = (x, container, inline)=>{
+          const r = x.r;
           const line = document.createElement('div');
-          line.style.cssText = 'font-size:15px; margin:0 0 4px; display:flex; justify-content:space-between; align-items:flex-start; gap:8px;';
-
-          const suppressTag = io.roundGroup && !io.isLastRound;
-
+          line.style.cssText = inline ? 'display:flex; align-items:baseline; gap:8px; flex-shrink:0;' : 'display:flex; align-items:baseline; gap:10px; font-size:14px; margin-top:4px;';
           const textSpan = document.createElement('span');
-          if(r.skipped){
-            textSpan.style.color = 'var(--text-muted)';
-            textSpan.innerHTML = `${r.item_name} — 생략${(!suppressTag && r.scale_detail) ? ' ('+r.scale_detail.replace('생략: ','')+')' : ''}`;
-          } else {
-            const detailTag = personalDetailHtml(r, unit) ?? ((r.scaled && !suppressTag) ? `<div style="margin-top:4px;"><span class="tag scaled">※${r.scale_detail ? ' '+r.scale_detail : ''}</span></div>` : '');
-            const displayValue = r.type === 'weight' ? formatWeight(parseFloat(r.value) || 0, unit) : r.value;
-            textSpan.innerHTML = `${r.item_name} — <strong style="font-weight:500;">${displayValue}</strong>${detailTag}`;
-          }
-
+          textSpan.style.cssText = inline ? 'text-align:right;' : 'flex:1; min-width:0; display:flex; gap:12px;';
+          const val = r.skipped
+            ? '<span style="color:var(--text-muted); font-weight:400;">생략' + (skipReason(r) ? ' · ' + escapeHtml(skipReason(r)) : '') + '</span>'
+            : '<strong style="font-weight:600;">' + fmtVal(r) + '</strong>';
+          textSpan.innerHTML = inline ? val : '<span style="color:var(--text-muted); min-width:44px;">' + escapeHtml(x.label) + '</span>' + val;
           line.appendChild(textSpan);
+          if(dateEditMode) line.appendChild(editButtons(r, line, textSpan));
+          container.appendChild(line);
+        };
 
-          if(dateEditMode){
-            const editBtn = document.createElement('button');
-            editBtn.textContent = '수정';
-            editBtn.style.cssText = 'height:28px; font-size:14px; padding:0 10px; flex-shrink:0;';
-            editBtn.onclick = ()=> startEditRecord(r, line, textSpan, unit, ()=> renderForDate(date), ()=>{
-              const idx = records.indexOf(r);
-              if(idx !== -1) records.splice(idx, 1);
-              renderForDate(date);
-            });
-
-            const deleteBtn = document.createElement('button');
-            deleteBtn.textContent = '삭제';
-            deleteBtn.className = 'danger';
-            deleteBtn.style.cssText = 'height:28px; font-size:14px; padding:0 10px; flex-shrink:0;';
-            deleteBtn.onclick = async ()=>{
-              if(!confirm(`${r.item_name} 기록을 삭제할까요? 삭제하면 되돌릴 수 없어요.`)) return;
-              const { error } = await sb.from('records').delete().eq('id', r.id);
-              if(error){ alert('삭제에 실패했어요: ' + error.message); return; }
-              const idx = records.indexOf(r);
-              if(idx !== -1) records.splice(idx, 1);
-              renderForDate(date);
-            };
-
-            const btnGroup = document.createElement('div');
-            btnGroup.style.cssText = 'display:flex; gap:6px; flex-shrink:0;';
-            btnGroup.appendChild(editBtn);
-            btnGroup.appendChild(deleteBtn);
-            line.appendChild(btnGroup);
-          }
-
-          sectionBox.appendChild(line);
-        });
+        if(single){
+          addRow(g.rows[0], head, true);
+        } else {
+          g.rows.forEach(x => addRow(x, block, false));
+        }
+        if(g.item && g.item.prescribed){
+          const pres = document.createElement('div');
+          pres.style.cssText = 'margin-top:6px; font-size:14px; line-height:1.55;' + (allSkipped ? ' opacity:0.6;' : '');
+          pres.innerHTML = formatPrescribed(g.item.prescribed);
+          block.appendChild(pres);
+        }
+        const notes = g.rows.map(x => noteHtml(x.r)).filter(Boolean).join('');
+        if(notes){ const n = document.createElement('div'); n.innerHTML = notes; block.appendChild(n); }
+        sectionBox.appendChild(block);
       });
       resultEl.appendChild(sectionBox);
     });
+
   }
 
   if(selectedDate){
