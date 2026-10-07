@@ -1,4 +1,4 @@
-/* JOGYM NOTE — transparent workout sharing. No database writes. */
+/* JOGYM NOTE — workout image sharing. No database writes. */
 (function () {
   'use strict';
     function shareEnglish(text) {
@@ -350,18 +350,35 @@
     const lines = prescriptionLines(text);
     if (showIntent) return lines;
     let inIntent = false;
-    return lines.filter(line => {
+    const coaching = /의도|목표|목적|자극|포커스|전환|기록|설명|안내|동작(?:은|을|이)|호흡(?:은|을)|페이스(?:는|를)|빠르게|짧게|천천히|일정하게|전체\s*시간/;
+    function isWorkout(line) {
+      line = String(line).trim().replace(/^[^\p{L}\p{N}]+/u, '');
+      if (coaching.test(line)) return false;
+      if (!/[가-힣]/.test(line)) return /[A-Za-z]{3}/.test(line);
+      return /^\d+(?:[-–/x.:]\d+)*(?:\s*(?:cal|kg|lbs?|cm|m|ft))?\s+[A-Za-z]/i.test(line)
+        || /^\d+(?:[-–/x]\d+)*\s*(?!(?:세트|라운드|분|초|회|개))[가-힣][가-힣\s]*$/.test(line)
+        || /^[가-힣\s]+\s+\d+(?:[-–/]\d+)*(?:\s*(?:회|개|kg|lbs?|미터|m))?$/i.test(line);
+    }
+    return lines.flatMap(line => {
       const plain = String(line).trim().replace(/^\d+[.)]\s*/, '')
         .replace(/^[^\p{L}\p{N}]+/u, '').replace(/[\[\]()*_]/g, '').trim();
       const heading = /^(?:(?:오늘의|운동|와드|훈련|WOD)\s*)?(?:의도|목적|자극|포커스|목표(?:\s*(?:기록|시간|페이스))?|intent(?:ion)?|stimulus|goal|target)(?=$|[\s:：/·-]|은|는|를|을)/i.test(plain);
-      if (heading) { inIntent = true; return false; }
-      if (!plain) { inIntent = false; return true; }
-      if (/^(?:휴식|스케일(?:링)?|기록|라운드|세트|동작|REST\b|TIME CAP\b)/i.test(plain)) { inIntent = false; return true; }
-      // Only follow clearly marked coaching text. Other Korean workout lines stay.
-      if (inIntent && ((/[가-힣]/.test(plain) && !/\d/.test(plain)) ||
-        /^\d+(?:\s*[-–~]\s*\d+)?\s*(?:분|초|minutes?|mins?|seconds?|secs?)(?=$|\s|이내|정도|안에)/i.test(plain))) return false;
+      if (heading) { inIntent = true; return []; }
+      if (!plain) return [];
+      if (inIntent && /^\d+(?:\s*[-–~]\s*\d+)?\s*(?:분|초|minutes?|mins?|seconds?|secs?)(?:\s*(?:이내|정도|안에).*)?\s*$/i.test(plain)) return [];
+      // Korean coaching/recording directions are optional, including numeric prose.
+      // Preserve actual quantified movements and the English prescription alongside them.
+      let visible = String(line).trim().replace(/\s*[([]([^\])]*[가-힣][^\])]*)[)\]]/g, (whole, note) =>
+        coaching.test(note) || !/\d/.test(note) ? '' : whole);
+      const marker = visible.search(coaching);
+      if (marker >= 0) {
+        const prefix = visible.slice(0, marker).replace(/[\s,:：;·/—–-]+$/g, '');
+        visible = isWorkout(prefix) ? prefix : '';
+      }
+      if (visible && /[가-힣]/.test(visible) && !isWorkout(visible)) return [];
+      if (!visible) return [];
       inIntent = false;
-      return true;
+      return [visible];
     });
   }
 
@@ -674,11 +691,50 @@
       const logicalH = cfg.size === 'crop' ? Math.min(H, Math.max(160, page.y + pad + 22)) : H;
       const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = Math.round(logicalH * 2);
       const ctx = canvas.getContext('2d'); ctx.scale(2, 2); ctx.textBaseline = 'top';
+      if (pages.length > 1) page.ops.push({ type: 'text', text: (index + 1) + ' / ' + pages.length, x: W - pad, y: logicalH - pad, role: 'foot',
+        spec: { key: cfg.font, size: 12 * scale, weight: 400, color: cfg.color, alpha: 1, align: 'right' } });
+      if (cfg.background === 'photo' && cfg.photoImage) {
+        const image = cfg.photoImage, factor = Math.max(W / image.naturalWidth, logicalH / image.naturalHeight);
+        const w = image.naturalWidth * factor, h = image.naturalHeight * factor;
+        ctx.drawImage(image, (W - w) / 2, (logicalH - h) / 2, w, h);
+        ctx.fillStyle = 'rgba(0,0,0,' + (cfg.photoShade == null ? .25 : cfg.photoShade) + ')';
+        ctx.fillRect(0, 0, W, logicalH);
+      } else if (cfg.background && cfg.background !== 'transparent' && cfg.background !== 'photo') {
+        const palette = { charcoal: ['#171b21'], paper: ['#f3eee4'], midnight: ['#173a52', '#080f20'], dusk: ['#6a315e', '#25243e'] }[cfg.background];
+        if (palette) {
+          let fill = palette[0];
+          if (palette.length > 1) { fill = ctx.createLinearGradient(0, 0, W, logicalH); palette.forEach((color, i) => fill.addColorStop(i / (palette.length - 1), color)); }
+          ctx.fillStyle = fill; ctx.fillRect(0, 0, W, logicalH);
+        }
+      }
+      const boxColor = cfg.textBox === 'light' ? '#fffaf3' : cfg.textBox === 'accent' ? accent : '#14171d';
+      const rgb = boxColor.replace('#', '').match(/../g).map(part => parseInt(part, 16));
+      const lightBox = (rgb[0] * .299 + rgb[1] * .587 + rgb[2] * .114) / 255 > .5;
+      const boxed = op => cfg.textBox && cfg.textBox !== 'none' && op.type === 'text' &&
+        (cfg.boxScope !== 'titleRecord' || /^(section|record)$/.test(op.role));
+      // Paint all plates first so a neighboring plate never covers already drawn text.
+      page.ops.filter(boxed).forEach(op => {
+        ctx.save(); ctx.font = op.spec.weight + ' ' + op.spec.size + 'px ' + fonts[op.spec.key]; ctx.textAlign = op.spec.align || 'left';
+        const metrics = ctx.measureText(op.text), px = Math.min(6 * scale, op.spec.size * .22), py = Math.min(4 * scale, op.spec.size * .18);
+        const x = op.x - metrics.actualBoundingBoxLeft - px, y = op.y - metrics.actualBoundingBoxAscent - py;
+        const w = metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight + px * 2;
+        const h = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent + py * 2;
+        if (w > 0 && h > 0) {
+          ctx.fillStyle = boxColor; ctx.globalAlpha = cfg.boxOpacity == null ? .88 : cfg.boxOpacity;
+          ctx.beginPath(); ctx.roundRect(x, y, w, h, Math.min(h * .25, 8 * scale)); ctx.fill();
+        }
+        ctx.restore();
+      });
       const recordSizes = [];
       page.ops.forEach(op => {
         ctx.save(); ctx.fillStyle = op.color || cfg.color; ctx.strokeStyle = op.color || cfg.color; ctx.globalAlpha = op.alpha == null ? 1 : op.alpha; ctx.lineWidth = .8;
         if (op.type === 'text') {
           ctx.fillStyle = op.spec.color; ctx.globalAlpha = op.spec.alpha; ctx.font = op.spec.weight + ' ' + op.spec.size + 'px ' + fonts[op.spec.key]; ctx.textAlign = op.spec.align || 'left';
+          if (boxed(op)) {
+            ctx.fillStyle = lightBox ? '#151515' : '#ffffff';
+            if (op.role === 'format' && theme.accent && cfg.textBox !== 'accent') ctx.fillStyle = lightBox
+              ? '#' + accent.replace('#', '').match(/../g).map(part => Math.round(parseInt(part, 16) * .5).toString(16).padStart(2, '0')).join('') : accent;
+          }
           ctx.fillText(op.text, op.x, op.y);
           if (op.role === 'record') recordSizes.push(op.spec.size * 2);
         } else if (op.type === 'line') {
@@ -699,9 +755,6 @@
         const x = left - 14, w = columnW + 28, bottom = Math.min(logicalH - 30, page.y + 8);
         ctx.strokeStyle = cfg.color; ctx.globalAlpha = .35; ctx.lineWidth = .7; ctx.beginPath();
         ctx.moveTo(x, 22); ctx.lineTo(x, bottom); for (let px = x; px < x + w; px += 10) { ctx.lineTo(px + 5, bottom - 6); ctx.lineTo(Math.min(px + 10, x + w), bottom); } ctx.lineTo(x + w, 22); ctx.stroke(); ctx.globalAlpha = 1;
-      }
-      if (pages.length > 1) {
-        ctx.fillStyle = cfg.color; ctx.font = (12 * scale) + 'px ' + fonts[cfg.font]; ctx.textAlign = 'right'; ctx.fillText((index + 1) + ' / ' + pages.length, W - pad, logicalH - pad);
       }
       if (recordSizes.length) { canvas.dataset.recordMin = String(Math.min(...recordSizes)); canvas.dataset.recordMax = String(Math.max(...recordSizes)); }
       return canvas;
@@ -904,6 +957,11 @@
 #jn-workout-share .ws-font-name{font-size:22px;line-height:1.35;min-width:0;overflow-wrap:anywhere}
 #jn-workout-share .ws-font-mark{font:16px sans-serif;flex-shrink:0;width:18px;text-align:center}
 #jn-workout-share .ws-font-sample{font-size:18px;line-height:1.5;overflow-wrap:anywhere;opacity:.8}
+#jn-workout-share .ws-background-controls{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding-top:12px;border-top:1px solid var(--border,#ddd)}
+#jn-workout-share .ws-background-controls>div{min-width:0}
+#jn-workout-share .ws-wide{grid-column:1/-1}
+#jn-workout-share .ws-photo-actions{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+@media(max-width:700px){#jn-workout-share .ws-background-controls{grid-template-columns:1fr}}
 @media(max-width:700px){#jn-workout-share .ws-font-sheet{padding:10px}#jn-workout-share .ws-font-list{grid-template-columns:1fr}}
 #jn-workout-share .ws-preview-dock.is-expanded{position:absolute;inset:0;z-index:3;border:0;justify-content:center;padding:16px;background:var(--surface-0,#f2f2f0)}
 #jn-workout-share .ws-preview-dock.is-expanded h3{align-self:center}
@@ -930,6 +988,7 @@
 
     const cfg = {
       font: 'inter', titleFont: 'inter', recordFont: 'inter', accent: '#ff5b24', color: '#ffffff', size: 'portrait', fontSize: 40,
+      background: 'transparent', textBox: 'none', boxScope: 'all', boxOpacity: .88, photoImage: null, photoShade: .25,
       date: true, sections: true, records: true, details: false,
       notes: false, prescribed: true, intent: false, foot: ''
     };
@@ -941,6 +1000,8 @@
     );
     let style = 0, pages = [], page = 0, revision = 0, closed = false;
     let fontSheet = null;
+    let photoVersion = 0;
+    const photoURLs = new Set();
 
     const root = node('div', null, document.body);
     root.id = 'jn-workout-share';
@@ -965,6 +1026,8 @@
     function end() {
       closed = true;
       revision++;
+      photoVersion++;
+      photoURLs.forEach(url => URL.revokeObjectURL(url)); photoURLs.clear();
       root.remove();
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', keys);
@@ -1031,12 +1094,12 @@
       return { b, thumb };
     });
 
-    node('h3', '2. 폰트 · 글자색 · 저장 크기', settings);
+    node('h3', '2. 폰트 · 배경 · 저장 크기', settings);
     const controls = node('div', null, settings);
     controls.className = 'ws-controls';
 
-    function select(label, key, list) {
-      const box = node('div', null, controls);
+    function select(label, key, list, parent = controls) {
+      const box = node('div', null, parent);
       node('label', label, box);
       const s = node('select', null, box);
       s.setAttribute('aria-label', label);
@@ -1118,7 +1181,7 @@
     const titleSelect = fontPicker('제목 폰트', 'titleFont');
     const fontSelect = fontPicker('본문 폰트', 'font');
     const recordSelect = fontPicker('기록 폰트', 'recordFont');
-    select('글자색', 'color', [
+    const colorSelect = select('글자색', 'color', [
       ['#ffffff', '화이트'],
       ['#151515', '블랙'],
       ['#ece3d1', '아이보리'],
@@ -1130,6 +1193,54 @@
       ['landscape', '가로'],
       ['crop', '내용에 맞춤']
     ]);
+
+    const backgroundControls = node('div', null, controls); backgroundControls.className = 'ws-background-controls';
+    const backgroundSelect = select('PNG 배경', 'background', [['transparent', '투명'], ['charcoal', '차콜'], ['paper', '아이보리'], ['midnight', '미드나잇 그라데이션'], ['dusk', '더스크 그라데이션'], ['photo', '내 사진']], backgroundControls);
+    const photoOption = backgroundSelect.querySelector('option[value=photo]'); photoOption.disabled = true;
+    function syncBackgroundColor() { cfg.color = cfg.background === 'paper' ? '#151515' : '#ffffff'; colorSelect.value = cfg.color; }
+    backgroundSelect.onchange = () => { cfg.background = backgroundSelect.value; syncBackgroundColor(); update(); };
+    select('글자 뒤 박스', 'textBox', [['none', '없음'], ['dark', '다크 라운드'], ['light', '화이트 라운드'], ['accent', '강조색 라운드']], backgroundControls);
+    select('박스 범위', 'boxScope', [['all', '전체 글자'], ['titleRecord', '제목·기록만']], backgroundControls);
+    function backgroundSlider(label, key, min, max) {
+      const box = node('div', null, backgroundControls);
+      const caption = node('label', null, box); node('span', label, caption);
+      const output = node('output', Math.round(cfg[key] * 100) + '%', caption);
+      const slider = node('input', null, box); slider.type = 'range'; slider.min = min; slider.max = max; slider.step = '1'; slider.value = Math.round(cfg[key] * 100); slider.setAttribute('aria-label', label);
+      slider.oninput = () => { cfg[key] = Number(slider.value) / 100; output.textContent = slider.value + '%'; update(); };
+      return slider;
+    }
+    backgroundSlider('박스 불투명도', 'boxOpacity', 55, 100);
+    const photoBox = node('div', null, backgroundControls); photoBox.className = 'ws-wide';
+    node('label', '배경 사진', photoBox);
+    const photoInput = node('input', null, photoBox); photoInput.type = 'file'; photoInput.accept = 'image/jpeg,image/png,image/webp'; photoInput.hidden = true; photoInput.setAttribute('aria-label', '배경 사진 파일');
+    const photoActions = node('div', null, photoBox); photoActions.className = 'ws-photo-actions';
+    const choosePhoto = node('button', '사진 선택', photoActions); choosePhoto.type = 'button'; choosePhoto.onclick = () => photoInput.click();
+    const clearPhoto = node('button', '사진 지우기', photoActions); clearPhoto.type = 'button'; clearPhoto.disabled = true;
+    const photoHint = node('p', '사진은 화면을 채우도록 가운데를 기준으로 맞춰져요.', photoBox); photoHint.className = 'ws-status';
+    photoInput.onchange = () => {
+      const file = photoInput.files[0]; if (!file) return;
+      if (!/^image\/(?:jpeg|png|webp)$/.test(file.type)) { photoHint.textContent = 'JPG, PNG, WebP 사진을 선택해주세요.'; photoInput.value = ''; return; }
+      const token = ++photoVersion, url = URL.createObjectURL(file), image = new Image(); photoURLs.add(url);
+      photoHint.textContent = '사진을 불러오는 중이에요.';
+      image.onload = () => {
+        if (closed || token !== photoVersion) { URL.revokeObjectURL(url); photoURLs.delete(url); return; }
+        photoURLs.forEach(old => { if (old !== url) { URL.revokeObjectURL(old); photoURLs.delete(old); } });
+        cfg.photoImage = image; cfg.background = 'photo'; backgroundSelect.value = 'photo'; photoOption.disabled = false;
+        clearPhoto.disabled = false; choosePhoto.textContent = '사진 변경'; photoHint.textContent = file.name + ' · 가운데를 기준으로 채워요.'; syncBackgroundColor(); update();
+      };
+      image.onerror = () => { URL.revokeObjectURL(url); photoURLs.delete(url); if (!closed && token === photoVersion) photoHint.textContent = '사진을 불러오지 못했어요. JPG, PNG, WebP 파일을 다시 선택해주세요.'; };
+      image.src = url; photoInput.value = '';
+    };
+    clearPhoto.onclick = () => {
+      photoVersion++; photoURLs.forEach(url => URL.revokeObjectURL(url)); photoURLs.clear(); cfg.photoImage = null;
+      photoOption.disabled = true; clearPhoto.disabled = true; choosePhoto.textContent = '사진 선택';
+      photoHint.textContent = '사진은 화면을 채우도록 가운데를 기준으로 맞춰져요.';
+      if (cfg.background === 'photo') { cfg.background = 'transparent'; backgroundSelect.value = 'transparent'; }
+      update();
+    };
+    backgroundSlider('사진 어둡게', 'photoShade', 0, 70);
+    const boxHint = node('p', '글자 박스 안의 글자색은 배경에 맞춰 자동으로 조정돼요. 박스와 선택한 배경은 PNG에도 저장돼요.', backgroundControls);
+    boxHint.className = 'ws-detail-hint ws-wide';
 
     const sizeBox = node('div', null, controls);
     sizeBox.className = 'ws-font-size';
@@ -1184,12 +1295,12 @@
       ['details', '세트 정보'],
       ['notes', '세부내용'],
       ['prescribed', '원본'],
-      ['intent', '의도·목표']
+      ['intent', '한국어 안내']
     ].forEach(([k, t]) =>
       check(opts, t, cfg[k], v => { cfg[k] = v; update(); })
     );
 
-    const hint = node('p', '원본에 기록을 붙여 간결하게 보여줘요. 의도·목표 설명은 기본 숨김이며 체크하면 표시해요. 세트 정보는 Finish·무게×횟수 등 추가 정보를 표시해요.', settings);
+    const hint = node('p', '한국어 안내는 기본 숨김이에요. 체크하면 의도·목표, 동작·전환 설명, 기록 방법 등 원본 안내를 함께 표시해요. 실제 운동 기록은 기록 옵션으로 표시해요.', settings);
     hint.className = 'ws-detail-hint';
     node('label', '각주', settings);
     const foot = node('textarea', null, settings);
@@ -1346,9 +1457,12 @@
         });
         status.textContent = list.length
           ? list.length + '개 운동 · ' + pages.length
-            + '장 · PNG 배경 투명'
+            + '장 · ' + (cfg.background === 'transparent' ? '투명 바탕' : '배경 포함') + (cfg.textBox !== 'none' ? ' · 글자 박스' : '')
           : '공유할 운동을 선택해주세요.';
         show();
+        transparencyHint.textContent = cfg.background === 'transparent'
+          ? (cfg.textBox === 'none' ? '체크 무늬는 저장되지 않아요 · 투명 PNG' : '체크 무늬는 저장되지 않아요 · 글자 박스는 저장돼요')
+          : '선택한 배경이 PNG에도 저장돼요';
       } catch (e) {
         if (token === revision) {
           pages = [];
