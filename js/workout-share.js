@@ -1,6 +1,31 @@
 /* JOGYM NOTE — transparent workout sharing. No database writes. */
 (function () {
   'use strict';
+    function shareEnglish(text) {
+    return String(text == null ? '' : text)
+      .replace(/시계\s*(\d+:\d{2})에\s*끝남/g, 'FINISH $1')
+      .replace(/시계\s*(\d+:\d{2})에\s*멈춤/g, 'FINISH $1')
+      .replace(/(?:타임\s*캡(?:\s*걸림)?|못\s*끝냄)\s*(\d+)\s*(?:개|회)/g, 'TC +$1')
+      .replace(/타임\s*캡(?:\s*걸림)?|못\s*끝냄|캡/g, 'TC')
+      .replace(/\bCAP\b/gi, 'TC')
+      .replace(/(\d+)\s*세트/g, 'SET $1')
+      .replace(/(\d+(?:\.\d+)?)\s*(?:회|개)/g, '$1 REPS')
+      .replace(/원본 처방/g, 'WORKOUT')
+      .replace(/웨이트\s*리프팅/g, 'WEIGHTLIFTING')
+      .replace(/스트렝스/g, 'STRENGTH')
+      .replace(/메트콘/g, 'METCON')
+      .replace(/악세서리|액세서리/g, 'ACCESSORY')
+      .replace(/웜업|워밍업/g, 'WARM UP')
+      .replace(/개인 운동/g, 'PERSONAL')
+      .replace(/기타/g, 'OTHER')
+      .replace(/완료/g, 'DONE')
+      .replace(/생략/g, 'SKIPPED')
+      .replace(/총/g, 'TOTAL')
+      .replace(/(\d)(kg|lbs?|cal|reps)\b/gi, (_, n, unit) =>
+        n + ' ' + unit.toUpperCase())
+      .replace(/\b(kg|lb|lbs|cal|reps|finish)\b/gi, word =>
+        word.toUpperCase());
+  }
   if (window.JogymWorkoutShare) return;
 
   const fonts = {
@@ -147,6 +172,7 @@
     const commands = [];
 
     function add(text, size, bold, gap, align) {
+      text = shareEnglish(text);
       measure.font = (bold ? '600 ' : '400 ')
         + size + 'px ' + fonts[cfg.font];
       wrap(measure, text, W - pad * 2).forEach(t =>
@@ -629,7 +655,7 @@
       return parts.join('\n').trim();
     }
     copy.onclick = async () => {
-      const t = text();
+      const t = shareEnglish(text());
       try {
         if (!navigator.clipboard) {
           throw new Error('clipboard unavailable');
