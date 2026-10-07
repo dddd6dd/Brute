@@ -33,7 +33,16 @@
     serif: 'Georgia, "Noto Serif KR", Batang, serif',
     mono: '"SFMono-Regular", Consolas, "Malgun Gothic", monospace'
   };
-  const styles = ['Minimal', 'Training Log', 'Record Focus', 'Editorial'];
+  const styles = [
+    { name: 'Minimal', font: 'sans', body: 20, record: 20, section: 22, gap: 20 },
+    { name: 'Training Log', font: 'sans', body: 20, record: 20, section: 18, gap: 22, rules: true },
+    { name: 'Record Focus', font: 'sans', body: 20, record: 34, section: 20, gap: 22, boldRecord: true },
+    { name: 'Editorial', font: 'serif', body: 20, record: 26, section: 24, gap: 24, center: true },
+    { name: 'Compact', font: 'sans', body: 18, record: 20, section: 18, gap: 12, leading: 1.25 },
+    { name: 'Mono', font: 'mono', body: 20, record: 20, section: 20, gap: 20, rules: true },
+    { name: 'Air', font: 'sans', body: 22, record: 22, section: 22, gap: 30, light: true },
+    { name: 'Outline', font: 'sans', body: 20, record: 30, section: 20, gap: 22, outline: true }
+  ];
   const sizes = {
     portrait: [1080, 1920],
     landscape: [1920, 1080],
@@ -182,131 +191,191 @@
     return lines;
   }
 
-  function renderPages(entries, cfg, date, style) {
-    const [width, height] = sizes[cfg.size];
-    const W = width / 2, H = height / 2, pad = 34;
-    const measure = document.createElement('canvas').getContext('2d');
-    const commands = [];
+  // The image and copied text share this presentation model. Stored records stay intact.
+  function prescriptionLines(text) {
+    if (typeof splitPrescribedLines === 'function') return splitPrescribedLines(text);
+    return String(text || '').replace(/\r\n?/g, '\n').replace(/\\n/g, '\n')
+      .split('\n').map(line => line.trim()).filter(Boolean);
+  }
 
-    function add(text, size, bold, gap, align) {
-      text = shareEnglish(text);
-      size *= cfg.fontSize / 40;
-      measure.font = (bold ? '600 ' : '400 ')
-        + size + 'px ' + fonts[cfg.font];
-      wrap(measure, text, W - pad * 2).forEach(t =>
-        commands.push({
-          text: t, size, bold,
-          align: align || 'left',
-          h: size * 1.35
-        })
-      );
-      if (gap) commands.push({ h: gap });
-    }
+  function labelKey(text) {
+    return String(text || '').replace(/^\s*(?:\d+|[A-Za-z])[.)]\s*/, '')
+      .trim().toLowerCase().replace(/\s+/g, ' ');
+  }
 
-    if (cfg.date) {
-      add(date, 16, false, 20, style === 3 ? 'center' : 'left');
-    }
+  function restDuration(line) {
+    // Only whole, unambiguous between-session instructions can be consolidated.
+    // Rest inside sets/rounds or qualified instructions must remain in their source.
+    const match = String(line).match(/^(?:[-*•]\s*)?(?:BT\s+)?REST\s*:?\s*(\d+(?:\.\d+)?)(?::([0-5]\d)|\s*(MIN(?:UTE)?S?|MINS?|SEC(?:OND)?S?|SECS?))\s*(?:between\s+(?:each\s+)?(?:for\s*time\s+)?(?:parts?|sessions?|sections?))?\.?$/i);
+    if (!match || (match[2] != null && match[1].includes('.'))) return null;
+    const seconds = match[2] != null ? Number(match[1]) * 60 + Number(match[2])
+      : Number(match[1]) * (/^sec/i.test(match[3]) ? 1 : 60);
+    return Number.isInteger(seconds) && seconds > 0 ? seconds : null;
+  }
+
+  function composeShare(entries, cfg, date, items) {
+    const program = Array.isArray(items) ? items : [];
+    const groups = new Map();
+    entries.forEach(entry => {
+      const total = /(?:\s*·\s*|^)total$/i.test(entry.name.trim());
+      const base = entry.name.replace(/\s*·\s*total$/i, '');
+      const item = program.find(it => it && sec(it.section) === entry.section &&
+        (it.name === entry.name || (total && labelKey(it.subsection || it.section) === labelKey(base))));
+      const key = entry.section + '\n' + (item ? item.subsection || '' : '');
+      if (!groups.has(key)) groups.set(key, []);
+      const lines = (cfg.prescribed || !entry.rows.length) && entry.prescribed
+        ? prescriptionLines(entry.prescribed).filter(line => !/^\s*(?:WORKOUT|원본 처방)\s*:?\s*$/i.test(line)) : [];
+      const internalRest = lines.some(line => /^(?:\d+\s*(?:sets?|rounds?)\b|EMOM\b|E\d+MOM\b|every\b)/i.test(line));
+      const rests = lines.map((line, index) => ({ index, seconds: restDuration(line) }))
+        .filter(rest => rest.seconds != null);
+      groups.get(key).push({ entry, total, lines, rests, internalRest,
+        eligible: !total && /metcon|메트콘/i.test(entry.section) && (!item || !item.type || item.type === 'for_time') });
+    });
+
+    const blocks = [];
+    const addBlock = lines => { if (lines.length) blocks.push({ lines }); };
+    if (cfg.date && date) addBlock([{ text: shareEnglish(date), role: 'date' }]);
     let previous = '';
-    entries.forEach(e => {
-      if (cfg.sections && previous !== e.section) {
-        add(
-          e.section.toUpperCase(), 14, true, 12,
-          style === 3 ? 'center' : 'left'
-        );
-        previous = e.section;
+    groups.forEach(group => {
+      const section = group[0].entry.section;
+      if (cfg.sections && previous !== section) {
+        addBlock([{ text: shareEnglish(section).toUpperCase(), role: 'section' }]);
+        previous = section;
       }
-      add(
-        e.name, style === 2 ? 23 : style === 3 ? 25 : 21,
-        true, 8, style === 3 ? 'center' : 'left'
-      );
-      e.rows.forEach(r => {
-        if (cfg.records) {
-          const text = (r.label ? r.label + '  ·  ' : '') + r.value;
-          add(
-            text, style === 2 ? 34 : style === 3 ? 26 : 20,
-            style === 2 || style === 3, 5,
-            style === 3 ? 'center' : style === 1 ? 'right' : 'left'
-          );
+      const sessions = group.filter(part => !part.total);
+      const commonFormat = sessions.length >= 2 && sessions.every(part => /^each\s+for\s+time\s*:?$/i.test(part.lines[0] || ''));
+      if (commonFormat) addBlock([{ text: 'EACH FOR TIME', role: 'format' }]);
+      const rests = sessions.flatMap(part => part.rests);
+      const sharedRest = sessions.filter(part => part.rests.length).length >= 2 && rests.length >= 2 &&
+        sessions.every(part => part.eligible && !part.internalRest) &&
+        sessions.every(part => part.lines.every((line, i) => !/\bREST\b/i.test(line) || part.rests.some(rest => rest.index === i))) &&
+        rests.every(rest => rest.seconds === rests[0].seconds) ? rests[0].seconds : null;
+      group.forEach(part => {
+        const { entry } = part;
+        const lines = part.lines.filter((_, i) => !(commonFormat && !part.total && i === 0) && !(sharedRest != null && part.rests.some(rest => rest.index === i)))
+          .map(text => ({ text: shareEnglish(text), role: /^(?:each for time|for time|\d+\s*(?:sets?|rounds?)|EMOM|AMRAP|time cap)\b/i.test(text) ? 'format' : 'body' }));
+        if (part.total) {
+          lines.length = 0;
+          if (cfg.records && entry.rows.length) lines.push({ text: 'TOTAL', role: 'label' });
+        } else if (!lines.length && labelKey(entry.name) !== labelKey(entry.section)) {
+          // With original hidden or missing, keep a quiet identifier rather than a headline.
+          lines.push({ text: shareEnglish(entry.name), role: 'label' });
         }
-        if (cfg.details) r.detail.forEach(t =>
-          add(t, 16, false, 3, style === 3 ? 'center' : 'left')
-        );
-        if (cfg.notes && r.note) {
-          add('※ ' + r.note, 15, false, 5,
-            style === 3 ? 'center' : 'left');
+        const records = cfg.records ? entry.rows.filter(row => row.value !== '') : [];
+        if (records.length === 1 && lines.length) {
+          const row = records[0];
+          lines[0].value = shareEnglish((row.label ? row.label + ' · ' : '') + row.value);
+        } else records.forEach(row => lines.push({
+          text: shareEnglish((row.label ? row.label + ' · ' : '') + row.value), role: 'record'
+        }));
+        const notes = new Set();
+        entry.rows.forEach(row => {
+          if (cfg.details) row.detail.forEach(text => {
+            const normalized = shareEnglish(text);
+            if (normalized !== shareEnglish(row.value)) lines.push({ text: normalized, role: 'detail' });
+          });
+          if (cfg.notes && row.note && !notes.has(row.note)) {
+            lines.push({ text: '※ ' + shareEnglish(row.note), role: 'note' });
+            notes.add(row.note);
+          }
+        });
+        addBlock(lines);
+      });
+      if (sharedRest != null) {
+        // Keep the footer with the last session/summary when that block fits on a page.
+        const last = blocks[blocks.length - 1];
+        last.lines.push({ text: 'BT REST ' + Math.floor(sharedRest / 60) + ':' + String(sharedRest % 60).padStart(2, '0'), role: 'rest' });
+      }
+    });
+    if (cfg.foot.trim()) addBlock([{ text: shareEnglish(cfg.foot.trim()), role: 'foot' }]);
+    return blocks;
+  }
+
+  function renderPages(blocks, cfg, style, firstOnly) {
+    const theme = styles[style];
+    const [width, height] = sizes[cfg.size];
+    const W = width / 2, H = height / 2, pad = 34, usable = W - pad * 2;
+    const measure = document.createElement('canvas').getContext('2d');
+    const scale = cfg.fontSize / 40;
+    const font = fonts[cfg.font];
+    const layout = blocks.map(block => {
+      const commands = [];
+      block.lines.forEach(line => {
+        const role = line.role;
+        const record = role === 'record';
+        const size = (role === 'section' ? theme.section : record ? theme.record
+          : /^(?:date|format|detail|note|rest|foot)$/.test(role) ? 14 : theme.body) * scale;
+        const weight = role === 'section' || role === 'format' || (record && theme.boldRecord) ? 600 : theme.light && role === 'body' ? 300 : 400;
+        measure.font = weight + ' ' + size + 'px ' + font;
+        const valueSize = theme.record * scale;
+        let reserve = 0;
+        if (line.value && !theme.center) {
+          measure.font = (theme.boldRecord ? '600 ' : '400 ') + valueSize + 'px ' + font;
+          reserve = measure.measureText(line.value).width + 22;
+        }
+        const paired = line.value && !theme.center && reserve < usable * .55;
+        measure.font = weight + ' ' + size + 'px ' + font;
+        wrap(measure, line.text, paired ? usable - reserve : usable).forEach((text, i) => {
+          const pair = paired && i === 0;
+          commands.push({ text, size, weight, role, align: theme.center ? 'center' : 'left',
+            value: pair ? line.value : '', valueSize,
+            h: Math.max(size, pair ? valueSize : 0) * (theme.leading || 1.4) + (role === 'rest' ? 8 : 2) });
+        });
+        if (line.value && !paired) {
+          measure.font = (theme.boldRecord ? '600 ' : '400 ') + valueSize + 'px ' + font;
+          wrap(measure, line.value, usable).forEach(text => commands.push({ text,
+            size: valueSize, weight: theme.boldRecord ? 600 : 400, role: 'record',
+            align: theme.center ? 'center' : 'right', h: valueSize * 1.4 + 2 }));
         }
       });
-      if ((cfg.prescribed || !e.rows.length) && e.prescribed) {
-        add('원본 처방', 13, true, 3);
-        add(e.prescribed, 15, false, 8);
-      }
-      commands.push({ h: 22, rule: style === 1 });
+      const sectionOnly = block.lines.length === 1 && block.lines[0].role === 'section';
+      commands.push({ h: sectionOnly ? 8 : theme.gap, rule: theme.rules && !sectionOnly && block.lines[0].role !== 'date' });
+      return commands;
     });
 
-    if (cfg.foot.trim()) {
-      commands.push({ h: 12 });
-      add(cfg.foot.trim(), 15, false, 0,
-        style === 3 ? 'center' : 'left');
-    }
-
-    const pages = [], contentLimit = H - pad - 24;
+    const pages = [], limit = H - pad - 24;
     let list = [], y = pad;
-    commands.forEach(c => {
-      if (y + c.h > contentLimit && list.some(x => x.text)) {
-        pages.push({ list, y });
-        list = [];
-        y = pad;
-      }
-      list.push(Object.assign({ y }, c));
-      y += c.h;
-    });
-    if (list.some(x => x.text)) pages.push({ list, y });
-
-    return pages.map((p, i) => {
-      const logicalH = cfg.size === 'crop'
-        ? Math.min(H, Math.max(160, p.y + pad + 24)) : H;
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = Math.round(logicalH * 2);
-
-      const ctx = canvas.getContext('2d');
-      ctx.scale(2, 2);
-      ctx.fillStyle = cfg.color;
-      ctx.strokeStyle = cfg.color;
-      ctx.textBaseline = 'top';
-
-      // Draw only text and rules; preview backgrounds never enter the PNG.
-      p.list.forEach(c => {
-        if (c.rule) {
-          ctx.globalAlpha = .3;
-          ctx.beginPath();
-          ctx.moveTo(pad, c.y + 8);
-          ctx.lineTo(W - pad, c.y + 8);
-          ctx.stroke();
-          ctx.globalAlpha = 1;
-        }
-        if (!c.text) return;
-        ctx.font = (c.bold ? '600 ' : '400 ')
-          + c.size + 'px ' + fonts[cfg.font];
-        ctx.textAlign = c.align;
-        ctx.fillText(
-          c.text,
-          c.align === 'center' ? W / 2
-            : c.align === 'right' ? W - pad : pad,
-          c.y
-        );
+    const flush = () => { if (list.some(command => command.text)) pages.push({ list, y }); list = []; y = pad; };
+    layout.forEach(commands => {
+      const blockHeight = commands.reduce((sum, command) => sum + command.h, 0);
+      if (y + blockHeight > limit && blockHeight <= limit - pad && list.some(command => command.text)) flush();
+      commands.forEach(command => {
+        if (y + command.h > limit && list.some(c => c.text)) flush();
+        list.push(Object.assign({ y }, command)); y += command.h;
       });
-      if (pages.length > 1) {
-        ctx.font = (12 * cfg.fontSize / 40) + 'px ' + fonts[cfg.font];
-        ctx.textAlign = 'right';
-        ctx.fillText(
-          (i + 1) + ' / ' + pages.length,
-          W - pad, logicalH - pad
-        );
+    });
+    flush();
+    const output = firstOnly ? pages.slice(0, 1) : pages;
+    return output.map((p, i) => {
+      const logicalH = cfg.size === 'crop' ? Math.min(H, Math.max(160, p.y + pad + 24)) : H;
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = Math.round(logicalH * 2);
+      const ctx = canvas.getContext('2d');
+      ctx.scale(2, 2); ctx.fillStyle = cfg.color; ctx.strokeStyle = cfg.color; ctx.textBaseline = 'top';
+      function paint(text, x, y, size, weight, align, outline) {
+        ctx.font = weight + ' ' + size + 'px ' + font; ctx.textAlign = align;
+        if (outline) { ctx.lineWidth = 1.1 * scale; ctx.strokeText(text, x, y); }
+        else ctx.fillText(text, x, y);
       }
+      p.list.forEach(command => {
+        if (command.rule) {
+          ctx.globalAlpha = .22; ctx.lineWidth = .7; ctx.beginPath();
+          ctx.moveTo(pad, command.y + 8); ctx.lineTo(W - pad, command.y + 8); ctx.stroke(); ctx.globalAlpha = 1;
+        }
+        if (!command.text) return;
+        const x = command.align === 'center' ? W / 2 : command.align === 'right' ? W - pad : pad;
+        ctx.globalAlpha = /^(?:date|detail|note|rest|foot)$/.test(command.role) ? .78 : 1;
+        paint(command.text, x, command.y, command.size, command.weight, command.align, theme.outline && command.role === 'record');
+        ctx.globalAlpha = 1;
+        if (command.value) paint(command.value, W - pad, command.y, command.valueSize,
+          theme.boldRecord ? 600 : 400, 'right', theme.outline);
+      });
+      ctx.globalAlpha = 1;
+      if (pages.length > 1) paint((i + 1) + ' / ' + pages.length, W - pad, logicalH - pad, 12 * scale, 400, 'right', false);
       return canvas;
     });
   }
+
 
   const css = `
 #jn-workout-share{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:12px;background:rgba(0,0,0,.42);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:var(--text-primary,#171717);font-family:var(--font-sans,sans-serif)}
@@ -372,8 +441,8 @@
 
     const cfg = {
       font: 'sans', color: '#ffffff', size: 'portrait', fontSize: 40,
-      date: true, sections: true, records: true, details: true,
-      notes: false, prescribed: false, foot: ''
+      date: true, sections: true, records: true, details: false,
+      notes: false, prescribed: true, foot: ''
     };
     const defaults = entries.filter(e => /metcon|메트콘/i.test(e.section));
     const selected = new Set(
@@ -450,16 +519,18 @@
     node('h3', '1. 디자인 선택', settings);
     const grid = node('div', null, settings);
     grid.className = 'ws-grid';
-    const designButtons = styles.map((name, i) => {
+    const designButtons = styles.map((theme, i) => {
       const b = node('button', null, grid);
       b.type = 'button';
       b.className = 'ws-design';
       b.setAttribute('aria-pressed', String(i === 0));
       const thumb = node('div', null, b);
       thumb.className = 'ws-thumb';
-      node('span', name, b);
+      node('span', theme.name, b);
       b.onclick = () => {
         style = i;
+        cfg.font = theme.font;
+        fontSelect.value = cfg.font;
         designButtons.forEach((x, j) =>
           x.b.setAttribute('aria-pressed', String(i === j))
         );
@@ -485,7 +556,7 @@
       s.onchange = () => { cfg[key] = s.value; update(); };
       return s;
     }
-    select('폰트', 'font', [
+    const fontSelect = select('폰트', 'font', [
       ['sans', 'Sans · 깔끔하게'],
       ['serif', 'Serif · 클래식하게'],
       ['mono', 'Mono · 기록 노트']
@@ -525,7 +596,7 @@
     minus.onclick = () => changeSize(cfg.fontSize - 1);
     plus.onclick = () => changeSize(cfg.fontSize + 1);
     slider.oninput = () => changeSize(Number(slider.value));
-    const fontHint = node('p', '기본 디자인의 기록 본문 기준이에요. 제목과 강조 기록도 같은 비율로 조절돼요.', sizeBox);
+    const fontHint = node('p', '기록 글자 기준이에요. 테마별 실제 크기는 미리보기 아래에서 확인할 수 있어요.', sizeBox);
     fontHint.className = 'ws-detail-hint';
     function syncSize() {
       slider.value = String(cfg.fontSize); output.textContent = cfg.fontSize + ' px';
@@ -559,7 +630,7 @@
       check(opts, t, cfg[k], v => { cfg[k] = v; update(); })
     );
 
-    const hint = node('p', '세트 정보: 저장된 무게×횟수 등 추가 정보. 웜업은 별도 기록 없이 원본 프로그램을 선택할 수 있어요.', settings);
+    const hint = node('p', '원본에 기록을 붙여 간결하게 보여줘요. 세트 정보는 Finish·무게×횟수 등 추가 정보를 표시해요.', settings);
     hint.className = 'ws-detail-hint';
     node('label', '각주', settings);
     const foot = node('textarea', null, settings);
@@ -665,7 +736,7 @@
       const w = Math.min(expanded ? 430 : 320, maxW, maxH * canvas.width / canvas.height);
       preview.style.width = w + 'px';
       const scale = w / canvas.width;
-      const recordPx = cfg.fontSize * (style === 2 ? 1.7 : style === 3 ? 1.3 : 1);
+      const recordPx = cfg.fontSize * styles[style].record / 20;
       scaleHint.textContent = canvas.width + ' × ' + canvas.height + ' px · ' + Math.round(scale * 100) + '% 미리보기'
         + '\n기록 글자: PNG ' + Math.round(recordPx * 10) / 10 + ' px → 화면 ' + Math.round(recordPx * scale * 10) / 10 + ' px';
     }
@@ -700,16 +771,13 @@
         }
         if (closed || token !== revision) return;
         const list = chosen();
-        pages = list.length
-          ? renderPages(list, cfg, options.date, style) : [];
+        const blocks = composeShare(list, cfg, options.date, options.items);
+        pages = list.length ? renderPages(blocks, cfg, style) : [];
 
         designButtons.forEach(({ thumb }, i) => {
           thumb.replaceChildren();
           const p = list.length
-            ? renderPages(
-              list, Object.assign({}, cfg, { size: 'portrait' }),
-              options.date, i
-            )[0] : null;
+            ? renderPages(blocks, Object.assign({}, cfg, { size: 'portrait', font: i === style ? cfg.font : styles[i].font }), i, true)[0] : null;
           if (p) thumb.appendChild(p);
           thumb.style.background =
             cfg.color === '#151515' ? '#eee' : '#555';
@@ -754,24 +822,10 @@
     };
 
     function text() {
-      const parts = cfg.date ? [options.date] : [];
-      chosen().forEach(e => {
-        if (cfg.sections) parts.push(e.section.toUpperCase());
-        parts.push(e.name);
-        e.rows.forEach(r => {
-          if (cfg.records) {
-            parts.push((r.label ? r.label + ' · ' : '') + r.value);
-          }
-          if (cfg.details) parts.push(...r.detail);
-          if (cfg.notes && r.note) parts.push('※ ' + r.note);
-        });
-        if ((cfg.prescribed || !e.rows.length) && e.prescribed) {
-          parts.push('원본 처방\n' + e.prescribed);
-        }
-        parts.push('');
-      });
-      if (cfg.foot.trim()) parts.push(cfg.foot.trim());
-      return parts.join('\n').trim();
+      return composeShare(chosen(), cfg, options.date, options.items)
+        .map(block => block.lines.map(line =>
+          line.text + (line.value ? '  ·  ' + line.value : '')
+        ).join('\n')).join('\n\n').trim();
     }
     copy.onclick = async () => {
       const t = shareEnglish(text());
