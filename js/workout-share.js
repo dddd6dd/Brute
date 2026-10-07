@@ -35,9 +35,8 @@
   };
   const styles = ['Minimal', 'Training Log', 'Record Focus', 'Editorial'];
   const sizes = {
-    story: [1080, 1920],
-    portrait: [1080, 1350],
-    square: [1080, 1080],
+    portrait: [1080, 1920],
+    landscape: [1920, 1080],
     crop: [1080, 1920]
   };
 
@@ -184,13 +183,14 @@
   }
 
   function renderPages(entries, cfg, date, style) {
-    const W = 540, H = sizes[cfg.size][1] / 2, pad = 34;
+    const [width, height] = sizes[cfg.size];
+    const W = width / 2, H = height / 2, pad = 34;
     const measure = document.createElement('canvas').getContext('2d');
     const commands = [];
 
     function add(text, size, bold, gap, align) {
       text = shareEnglish(text);
-      size *= (window.JogymWorkoutShareFontSize || 40) / 40;
+      size *= cfg.fontSize / 40;
       measure.font = (bold ? '600 ' : '400 ')
         + size + 'px ' + fonts[cfg.font];
       wrap(measure, text, W - pad * 2).forEach(t =>
@@ -266,7 +266,7 @@
       const logicalH = cfg.size === 'crop'
         ? Math.min(H, Math.max(160, p.y + pad + 24)) : H;
       const canvas = document.createElement('canvas');
-      canvas.width = 1080;
+      canvas.width = width;
       canvas.height = Math.round(logicalH * 2);
 
       const ctx = canvas.getContext('2d');
@@ -275,7 +275,7 @@
       ctx.strokeStyle = cfg.color;
       ctx.textBaseline = 'top';
 
-      // 背景を塗らず、文字と罫線だけを描くため PNG は透明。
+      // Draw only text and rules; preview backgrounds never enter the PNG.
       p.list.forEach(c => {
         if (c.rule) {
           ctx.globalAlpha = .3;
@@ -297,7 +297,7 @@
         );
       });
       if (pages.length > 1) {
-        ctx.font = (12 * (window.JogymWorkoutShareFontSize || 40) / 40) + 'px ' + fonts[cfg.font];
+        ctx.font = (12 * cfg.fontSize / 40) + 'px ' + fonts[cfg.font];
         ctx.textAlign = 'right';
         ctx.fillText(
           (i + 1) + ' / ' + pages.length,
@@ -308,32 +308,52 @@
     });
   }
 
-  const css = [
-    '#jn-workout-share{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.48);display:grid;place-items:center;padding:12px;color:var(--text-primary,#171717)}',
-    '#jn-workout-share *{box-sizing:border-box}',
-    '#jn-workout-share .ws-panel{background:var(--surface-0,#f7f7f7);border:1px solid var(--border,#ddd);border-radius:22px;width:min(940px,100%);max-height:92dvh;overflow:auto;padding:20px;box-shadow:0 20px 80px #0004}',
-    '#jn-workout-share .ws-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}',
-    '#jn-workout-share h2{font-size:20px;margin:0;font-weight:600}',
-    '#jn-workout-share h3{font-size:15px;margin:20px 0 10px;font-weight:600}',
-    '#jn-workout-share .ws-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}',
-    '#jn-workout-share .ws-design{display:flex;flex-direction:column;gap:8px;height:auto;padding:8px;border-radius:14px;min-width:0;background:var(--surface-1,#fff);border:1px solid var(--border,#ddd);color:inherit;box-shadow:none}',
-    '#jn-workout-share .ws-design[aria-pressed=true]{outline:2px solid var(--text-primary,#171717);outline-offset:2px}',
-    '#jn-workout-share .ws-thumb{height:150px;overflow:hidden;width:100%;border-radius:8px;background:#555}',
-    '#jn-workout-share canvas{display:block;width:100%;height:auto}',
-    '#jn-workout-share .ws-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}',
-    '#jn-workout-share select,#jn-workout-share textarea{width:100%;font:inherit;color:inherit;background:var(--surface-1,#fff);border:1px solid var(--border,#ddd);border-radius:10px;padding:10px}',
-    '#jn-workout-share label{font-size:14px;letter-spacing:normal;text-transform:none;display:flex;gap:8px;align-items:center;color:inherit;margin:0}',
-    '#jn-workout-share input[type=checkbox]{appearance:auto;-webkit-appearance:checkbox;width:18px;height:18px;min-width:18px;padding:0;margin:0;box-shadow:none;accent-color:var(--text-primary,#171717)}',
-    '#jn-workout-share .ws-options{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}',
-    '#jn-workout-share .ws-section{padding:12px 0;border-bottom:1px solid var(--border,#ddd)}',
-    '#jn-workout-share .ws-item{padding:8px 0 0 26px}',
-    '#jn-workout-share .ws-footer{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}',
-    '#jn-workout-share .ws-preview{padding:18px;background-color:#555;background-image:linear-gradient(45deg,#666 25%,transparent 25%),linear-gradient(-45deg,#666 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#666 75%),linear-gradient(-45deg,transparent 75%,#666 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0;border-radius:14px;max-width:390px;margin:12px auto}',
-    '#jn-workout-share .ws-preview.is-dark-text{background-color:#eee;background-image:linear-gradient(45deg,#ddd 25%,transparent 25%),linear-gradient(-45deg,#ddd 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#ddd 75%),linear-gradient(-45deg,transparent 75%,#ddd 75%)}',
-    '#jn-workout-share .ws-status{font-size:13px;min-height:20px;margin:8px 0;white-space:pre-line}',
-    '#jn-workout-share button{touch-action:manipulation}',
-    '@media(max-width:600px){#jn-workout-share .ws-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#jn-workout-share .ws-panel{padding:16px}#jn-workout-share .ws-controls{grid-template-columns:1fr}}'
-  ].join('\n');
+  const css = `
+#jn-workout-share{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:12px;background:rgba(0,0,0,.42);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:var(--text-primary,#171717);font-family:var(--font-sans,sans-serif)}
+#jn-workout-share *{box-sizing:border-box}
+#jn-workout-share .ws-panel{position:relative;display:flex;flex-direction:column;width:min(1000px,100%);height:min(900px,96dvh);min-height:0;overflow:hidden;border:1px solid var(--glass-edge,#ddd);border-radius:26px;background:var(--glass-panel,#fafaf8);backdrop-filter:var(--blur-panel);-webkit-backdrop-filter:var(--blur-panel);box-shadow:var(--glass-shadow-float,0 20px 80px #0004)}
+#jn-workout-share .ws-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border,#ddd);flex-shrink:0;background:var(--glass-bg,#fafaf8)}
+#jn-workout-share h2{font-size:19px;margin:0;font-weight:600;letter-spacing:-.02em}
+#jn-workout-share h3{font-size:14px;margin:20px 0 10px;font-weight:600}
+#jn-workout-share .ws-body{display:grid;grid-template-columns:360px minmax(0,1fr);min-height:0;flex:1}
+#jn-workout-share .ws-preview-dock{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;min-width:0;min-height:0;background:var(--surface-0,#f2f2f0);border-right:1px solid var(--border,#ddd);overflow:auto}
+#jn-workout-share .ws-preview-dock h3{margin:0;align-self:flex-start}
+#jn-workout-share .ws-settings{overflow:auto;overscroll-behavior:contain;padding:0 20px 20px;min-height:0;min-width:0;background:var(--surface-0,#f2f2f0)}
+#jn-workout-share .ws-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+#jn-workout-share button{font:inherit;touch-action:manipulation;cursor:pointer;color:inherit;min-height:36px;height:auto;padding:8px 12px;line-height:1.3;border:1px solid var(--glass-edge,#ddd);border-radius:999px;background:var(--glass-bg,#fff);box-shadow:var(--glass-shadow);transition:background .16s ease}
+#jn-workout-share button[aria-pressed=true]{background:var(--glass-selected,#fff);border-color:var(--border-accent,#2f6fd6);box-shadow:var(--thumb-shadow)}
+#jn-workout-share button:disabled{opacity:.45;cursor:default}
+#jn-workout-share button:focus-visible,#jn-workout-share input:focus-visible,#jn-workout-share select:focus-visible,#jn-workout-share textarea:focus-visible{outline:2px solid var(--border-accent,#2f6fd6);outline-offset:2px}
+#jn-workout-share button.primary{background:var(--text-primary,#171717);color:var(--surface-0,#fff);border-color:transparent}
+#jn-workout-share .ws-design{display:flex;flex-direction:column;gap:6px;padding:7px;border-radius:14px;min-width:0;font-size:11px;white-space:normal}
+#jn-workout-share .ws-design span{overflow-wrap:anywhere;line-height:1.4}
+#jn-workout-share .ws-thumb{aspect-ratio:9/16;overflow:hidden;width:100%;border-radius:7px;background:#3a3a38}
+#jn-workout-share canvas{display:block;width:100%;height:auto}
+#jn-workout-share .ws-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#jn-workout-share .ws-controls>div{min-width:0}
+#jn-workout-share select,#jn-workout-share textarea{width:100%;min-width:0;max-width:100%;height:auto;min-height:44px;font:inherit;font-size:16px;line-height:1.5;color:inherit;background:var(--surface-1,#fff);border:1px solid var(--border,#ddd);border-radius:12px;padding:10px 12px;box-shadow:var(--card-shadow)}
+#jn-workout-share label{font-size:13px;letter-spacing:normal;text-transform:none;display:flex;gap:8px;align-items:center;color:inherit;margin:0 0 4px}
+#jn-workout-share input[type=checkbox]{appearance:auto;-webkit-appearance:checkbox;width:18px;height:18px;min-width:18px;padding:0;margin:0;box-shadow:none;accent-color:var(--border-accent,#2f6fd6)}
+#jn-workout-share .ws-options{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+#jn-workout-share .ws-section{padding:12px 0;border-bottom:1px solid var(--border,#ddd)}
+#jn-workout-share .ws-item{padding:8px 0 0 26px}
+#jn-workout-share .ws-footer{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap}
+#jn-workout-share .ws-preview{flex-shrink:0;overflow:hidden;padding:0;max-width:100%;border-radius:12px;background-color:#333332;background-image:conic-gradient(#40403e 25%,transparent 0 50%,#40403e 0 75%,transparent 0);background-size:16px 16px;box-shadow:0 0 0 1px var(--border),0 6px 20px #0002}
+#jn-workout-share .ws-preview.is-dark-text{background-color:#f6f6f3;background-image:conic-gradient(#e5e5e2 25%,transparent 0 50%,#e5e5e2 0 75%,transparent 0)}
+#jn-workout-share .ws-status{font-size:12px;line-height:1.5;min-height:18px;margin:0;color:var(--text-secondary,#666);white-space:pre-line;overflow-wrap:anywhere}
+#jn-workout-share .ws-preview-dock .ws-status{text-align:center}
+#jn-workout-share .ws-font-size{grid-column:1/-1}
+#jn-workout-share .ws-font-size-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
+#jn-workout-share .ws-font-size-row output{min-width:66px;text-align:center;font-variant-numeric:tabular-nums;font-size:14px}
+#jn-workout-share input[type=range]{width:100%;height:30px;min-height:0;padding:0;margin:4px 0;appearance:auto;-webkit-appearance:auto;accent-color:var(--border-accent,#2f6fd6);box-shadow:none}
+#jn-workout-share .ws-detail-hint{font-size:12px;line-height:1.5;color:var(--text-secondary,#666);margin:6px 0 12px}
+#jn-workout-share .ws-preview-dock.is-expanded{position:absolute;inset:0;z-index:3;border:0;justify-content:center;padding:16px;background:var(--surface-0,#f2f2f0)}
+#jn-workout-share .ws-preview-dock.is-expanded h3{align-self:center}
+#jn-workout-share .ws-preview-dock.is-expanded h3,#jn-workout-share .ws-preview-dock.is-expanded>.ws-status:not(.ws-scale-hint){display:none}
+@media(max-width:700px){#jn-workout-share{padding:6px}#jn-workout-share .ws-panel{height:calc(100dvh - 12px);border-radius:22px}#jn-workout-share .ws-head{padding:10px 14px}#jn-workout-share .ws-body{display:flex;flex-direction:column}#jn-workout-share .ws-preview-dock{flex-shrink:0;border-right:0;border-bottom:1px solid var(--border);padding:10px 14px;gap:5px;overflow:hidden}#jn-workout-share .ws-preview-dock h3{display:none}#jn-workout-share .ws-preview-dock .ws-footer button{min-height:32px;font-size:12px;padding:6px 10px}#jn-workout-share .ws-settings{flex:1;padding:0 14px 20px}#jn-workout-share .ws-controls{grid-template-columns:1fr}#jn-workout-share .ws-preview-dock.is-expanded h3{display:block}}
+@media(prefers-reduced-transparency:reduce){#jn-workout-share .ws-panel,#jn-workout-share .ws-head{background:var(--surface-0);backdrop-filter:none;-webkit-backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){#jn-workout-share button{transition:none}}
+`;
 
   function open(options) {
     const entries = buildEntries(
@@ -351,14 +371,14 @@
     }
 
     const cfg = {
-      font: 'sans', color: '#ffffff', size: 'story',
+      font: 'sans', color: '#ffffff', size: 'portrait', fontSize: 40,
       date: true, sections: true, records: true, details: true,
       notes: false, prescribed: false, foot: ''
     };
     const defaults = entries.filter(e => /metcon|메트콘/i.test(e.section));
     const selected = new Set(
       (defaults.length ? defaults : entries.filter(e =>
-        !/warm\s*-?\s*up|웜업/i.test(e.section)
+        !/warm\s*-?\s*up|웜업|워밍업/i.test(e.section)
       )).map(e => e.key)
     );
     let style = 0, pages = [], page = 0, revision = 0, closed = false;
@@ -389,6 +409,8 @@
       root.remove();
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', keys);
+      window.removeEventListener('resize', fitPreview);
+      resizeObserver.disconnect();
       if (active && active.isConnected) active.focus();
     }
     close.onclick = end;
@@ -402,7 +424,7 @@
       if (e.key === 'Tab') {
         const f = [...panel.querySelectorAll(
           'button,input,select,textarea'
-        )].filter(x => !x.disabled);
+        )].filter(x => !x.disabled && !x.closest('[inert]'));
         if (!f.length) return;
         const first = f[0], last = f[f.length - 1];
         if (e.shiftKey && (
@@ -419,8 +441,14 @@
     }
     document.addEventListener('keydown', keys);
 
-    node('h3', '1. 디자인 선택', panel);
-    const grid = node('div', null, panel);
+    const body = node('div', null, panel);
+    body.className = 'ws-body';
+    const dock = node('div', null, body);
+    dock.className = 'ws-preview-dock';
+    const settings = node('div', null, body);
+    settings.className = 'ws-settings';
+    node('h3', '1. 디자인 선택', settings);
+    const grid = node('div', null, settings);
     grid.className = 'ws-grid';
     const designButtons = styles.map((name, i) => {
       const b = node('button', null, grid);
@@ -440,8 +468,8 @@
       return { b, thumb };
     });
 
-    node('h3', '2. 폰트 · 글자색 · 저장 크기', panel);
-    const controls = node('div', null, panel);
+    node('h3', '2. 폰트 · 글자색 · 저장 크기', settings);
+    const controls = node('div', null, settings);
     controls.className = 'ws-controls';
 
     function select(label, key, list) {
@@ -469,14 +497,46 @@
       ['#a6f0ce', '민트']
     ]);
     select('PNG 크기', 'size', [
-      ['story', '스토리 · 1080 × 1920'],
-      ['portrait', '세로 · 1080 × 1350'],
-      ['square', '정사각 · 1080 × 1080'],
-      ['crop', '내용에 맞춤 · 너비 1080']
+      ['portrait', '세로'],
+      ['landscape', '가로'],
+      ['crop', '내용에 맞춤']
     ]);
 
-    node('h3', '3. 표시할 내용', panel);
-    const opts = node('div', null, panel);
+    const sizeBox = node('div', null, controls);
+    sizeBox.className = 'ws-font-size';
+    node('label', '기록 글자 크기 · PNG 기준', sizeBox);
+    const presets = node('div', null, sizeBox);
+    presets.className = 'ws-font-size-row';
+    const presetButtons = [['작게', 32], ['중간', 40], ['크게', 48]].map(([label, n]) => {
+      const b = node('button', label, presets);
+      b.type = 'button'; b.onclick = () => changeSize(n);
+      return {b, n};
+    });
+    const row = node('div', null, sizeBox);
+    row.className = 'ws-font-size-row';
+    const minus = node('button', '−', row);
+    minus.type = 'button'; minus.setAttribute('aria-label', '글자 크기 1px 줄이기');
+    const output = node('output', '', row);
+    const plus = node('button', '+', row);
+    plus.type = 'button'; plus.setAttribute('aria-label', '글자 크기 1px 늘리기');
+    const slider = node('input', null, sizeBox);
+    slider.type = 'range'; slider.min = '24'; slider.max = '72'; slider.step = '1';
+    slider.setAttribute('aria-label', '기록 글자 크기');
+    minus.onclick = () => changeSize(cfg.fontSize - 1);
+    plus.onclick = () => changeSize(cfg.fontSize + 1);
+    slider.oninput = () => changeSize(Number(slider.value));
+    const fontHint = node('p', '기본 디자인의 기록 본문 기준이에요. 제목과 강조 기록도 같은 비율로 조절돼요.', sizeBox);
+    fontHint.className = 'ws-detail-hint';
+    function syncSize() {
+      slider.value = String(cfg.fontSize); output.textContent = cfg.fontSize + ' px';
+      minus.disabled = cfg.fontSize <= 24; plus.disabled = cfg.fontSize >= 72;
+      presetButtons.forEach(({b,n}) => b.setAttribute('aria-pressed', String(n === cfg.fontSize)));
+    }
+    function changeSize(n) { cfg.fontSize = Math.max(24, Math.min(72, n)); syncSize(); update(); }
+    syncSize();
+
+    node('h3', '3. 표시할 내용', settings);
+    const opts = node('div', null, settings);
     opts.className = 'ws-options';
 
     function check(parent, label, on, change) {
@@ -490,17 +550,19 @@
     }
     [
       ['date', '날짜'],
-      ['sections', '섹션 제목'],
-      ['records', '기록값'],
-      ['details', '세트·수행 상세'],
-      ['notes', '저장된 메모'],
-      ['prescribed', '원본 처방']
+      ['sections', '섹션'],
+      ['records', '기록'],
+      ['details', '세트 정보'],
+      ['notes', '세부내용'],
+      ['prescribed', '원본']
     ].forEach(([k, t]) =>
       check(opts, t, cfg[k], v => { cfg[k] = v; update(); })
     );
 
-    node('label', '각주', panel);
-    const foot = node('textarea', null, panel);
+    const hint = node('p', '세트 정보: 저장된 무게×횟수 등 추가 정보. 웜업은 별도 기록 없이 원본 프로그램을 선택할 수 있어요.', settings);
+    hint.className = 'ws-detail-hint';
+    node('label', '각주', settings);
+    const foot = node('textarea', null, settings);
     foot.rows = 2;
     foot.maxLength = 300;
     foot.placeholder = '필요한 문구만 직접 입력';
@@ -511,13 +573,13 @@
       'p',
       '원본 처방은 실제 대체한 운동과 다를 수 있어요. '
       + '투명 배경의 체크 무늬는 저장되지 않아요.',
-      panel
+      settings
     );
     caution.className = 'ws-status';
 
-    node('h3', '4. 운동 섹션 · 개별 운동', panel);
+    node('h3', '4. 운동 섹션 · 개별 운동', settings);
     [...new Set(entries.map(e => e.section))].forEach(section => {
-      const box = node('div', null, panel);
+      const box = node('div', null, settings);
       box.className = 'ws-section';
       const members = entries.filter(e => e.section === section);
       const children = [];
@@ -549,29 +611,67 @@
       sync();
     });
 
-    node('h3', '미리보기', panel);
-    const status = node('p', '', panel);
+    node('h3', '미리보기', dock);
+    const status = node('p', '', dock);
     status.className = 'ws-status';
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
 
-    const preview = node('div', null, panel);
+    const preview = node('div', null, dock);
     preview.className = 'ws-preview';
-    const pager = node('div', null, panel);
+    const pager = node('div', null, dock);
     pager.className = 'ws-footer';
-    const prev = node('button', '이전 이미지', pager);
-    const next = node('button', '다음 이미지', pager);
+    const prev = node('button', '이전', pager);
+    const next = node('button', '다음', pager);
     const count = node('span', '', pager);
     prev.type = next.type = 'button';
     prev.onclick = () => { page--; show(); };
     next.onclick = () => { page++; show(); };
 
-    const actions = node('div', null, panel);
+    const actions = node('div', null, dock);
     actions.className = 'ws-footer';
     const save = node('button', '이 이미지 저장', actions);
     const copy = node('button', '텍스트 복사', actions);
     save.type = copy.type = 'button';
     save.className = 'primary';
+
+    const expand = node('button', '크게 보기', pager);
+    expand.type = 'button'; expand.setAttribute('aria-expanded', 'false');
+    expand.onclick = () => {
+      const expanded = dock.classList.toggle('is-expanded');
+      expand.textContent = expanded ? '설정으로 돌아가기' : '크게 보기';
+      expand.setAttribute('aria-expanded', String(expanded));
+      settings.inert = expanded; head.inert = expanded;
+      fitPreview();
+    };
+    const scaleHint = node('p', '', dock);
+    scaleHint.className = 'ws-status ws-scale-hint';
+    const transparencyHint = node('p', '체크 무늬는 저장되지 않아요 · 투명 PNG', dock);
+    transparencyHint.className = 'ws-status';
+    function fitPreview() {
+      const canvas = pages[page];
+      if (!canvas) { preview.style.width = '0px'; scaleHint.textContent = ''; return; }
+      const mobile = window.innerWidth <= 700;
+      const expanded = dock.classList.contains('is-expanded');
+      const visible = [...dock.children].filter(e => e !== preview && e.getClientRects().length);
+      const dockStyle = getComputedStyle(dock);
+      const occupied = visible.reduce((sum, e) => sum + e.getBoundingClientRect().height, 0)
+        + parseFloat(dockStyle.paddingTop) + parseFloat(dockStyle.paddingBottom)
+        + (parseFloat(dockStyle.rowGap) || 0) * visible.length + 8;
+      const maxH = expanded ? Math.max(1, panel.clientHeight - occupied)
+        : mobile ? Math.max(90, Math.min(300, panel.clientHeight * .33))
+        : Math.max(100, panel.clientHeight - 280);
+      const maxW = Math.max(1, dock.clientWidth - 32);
+      const w = Math.min(expanded ? 430 : 320, maxW, maxH * canvas.width / canvas.height);
+      preview.style.width = w + 'px';
+      const scale = w / canvas.width;
+      const recordPx = cfg.fontSize * (style === 2 ? 1.7 : style === 3 ? 1.3 : 1);
+      scaleHint.textContent = canvas.width + ' × ' + canvas.height + ' px · ' + Math.round(scale * 100) + '% 미리보기'
+        + '\n기록 글자: PNG ' + Math.round(recordPx * 10) / 10 + ' px → 화면 ' + Math.round(recordPx * scale * 10) / 10 + ' px';
+    }
+    const resizeObserver = new ResizeObserver(fitPreview);
+    resizeObserver.observe(dock);
+    window.addEventListener('resize', fitPreview);
 
     function chosen() {
       return entries.filter(e => selected.has(e.key));
@@ -586,6 +686,7 @@
       prev.disabled = page <= 0;
       next.disabled = page >= pages.length - 1;
       save.disabled = copy.disabled = !pages.length;
+      fitPreview();
     }
 
     async function update() {
@@ -595,7 +696,7 @@
         if (document.fonts) {
           await document.fonts.load(
             '20px ' + fonts[cfg.font], '오늘 운동'
-          );
+          ).catch(() => {});
         }
         if (closed || token !== revision) return;
         const list = chosen();
@@ -606,7 +707,7 @@
           thumb.replaceChildren();
           const p = list.length
             ? renderPages(
-              list, Object.assign({}, cfg, { size: 'square' }),
+              list, Object.assign({}, cfg, { size: 'portrait' }),
               options.date, i
             )[0] : null;
           if (p) thumb.appendChild(p);
@@ -681,11 +782,13 @@
         await navigator.clipboard.writeText(t);
         status.textContent = '텍스트를 복사했어요.';
       } catch (_) {
-        const box = node('textarea', t, panel);
+        if (dock.classList.contains('is-expanded')) expand.click();
+        const box = node('textarea', t, settings);
         box.readOnly = true;
         box.setAttribute('aria-label', '복사할 공유 텍스트');
         box.focus();
         box.select();
+        settings.scrollTop = settings.scrollHeight;
         status.textContent =
           '자동 복사가 제한되어 있어요. '
           + '아래 텍스트를 선택해 복사해주세요.';
@@ -760,165 +863,4 @@
     };
     return box;
   };
-})();
-
-
-(function () {
-  'use strict';
-  window.JogymWorkoutShareFontSize = 40;
-
-  const sheet = document.createElement('style');
-  sheet.id = 'jn-share-ui-fix-css';
-  sheet.textContent = [
-    '#jn-workout-share .ws-panel select{height:auto!important;min-height:44px;line-height:1.4;padding:10px 12px;max-width:100%;min-width:0}',
-    '#jn-workout-share .ws-panel textarea{height:auto;min-height:72px;line-height:1.5}',
-    '#jn-workout-share .ws-controls>div{min-width:0}',
-    '#jn-workout-share .ws-design span{white-space:normal;overflow-wrap:anywhere;line-height:1.4}',
-    '#jn-workout-share .ws-sticky{position:sticky;top:0;z-index:2;background:var(--surface-0,#f7f7f7);padding:8px 0 10px;border-bottom:1px solid var(--border,#ddd);margin-bottom:14px}',
-    '#jn-workout-share .ws-sticky .ws-head{margin-bottom:8px}',
-    '#jn-workout-share .ws-sticky h3{margin:0 0 6px;font-size:13px}',
-    '#jn-workout-share .ws-sticky .ws-preview{margin:0 auto;padding:8px;max-width:340px}',
-    '#jn-workout-share .ws-sticky canvas{width:auto;max-width:100%;height:auto;max-height:clamp(110px,22dvh,210px);margin:auto}',
-    '#jn-workout-share .ws-sticky .ws-footer{margin-top:6px;align-items:center;gap:6px}',
-    '#jn-workout-share .ws-sticky .ws-footer button{height:30px;padding:0 8px;font-size:12px;line-height:1.2}',
-    '#jn-workout-share .ws-sticky .ws-status{margin:4px 0 0;font-size:12px;min-height:16px}',
-    '#jn-workout-share .ws-font-size{grid-column:1/-1}',
-    '#jn-workout-share .ws-font-size-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}',
-    '#jn-workout-share .ws-font-size-row button{height:36px;min-width:38px;padding:0 10px;line-height:1.2;white-space:nowrap}',
-    '#jn-workout-share .ws-font-size-row button[aria-pressed=true]{background:var(--text-primary,#171717);color:var(--surface-0,#fff)}',
-    '#jn-workout-share .ws-font-size-row output{min-width:58px;text-align:center;font-variant-numeric:tabular-nums}',
-    '#jn-workout-share .ws-panel input[type=range]{height:28px;min-height:0;width:100%;padding:0;margin:8px 0 0;appearance:auto;-webkit-appearance:auto;accent-color:var(--text-primary,#171717)}',
-    '#jn-workout-share .ws-detail-hint{font-size:12px;line-height:1.5;color:var(--text-secondary,#666);margin:4px 0 12px}'
-  ].join('\n');
-  document.head.appendChild(sheet);
-
-  function enhance() {
-    const root = document.getElementById('jn-workout-share');
-    if (!root || root.dataset.uiFixed) return;
-
-    const panel = root.querySelector('.ws-panel');
-    const head = root.querySelector('.ws-head');
-    const preview = root.querySelector('.ws-preview');
-    const status = root.querySelector('[role="status"]');
-    const controls = root.querySelector('.ws-controls');
-    if (!panel || !head || !preview || !status || !controls) return;
-    root.dataset.uiFixed = '1';
-
-    const pager = preview.nextElementSibling;
-    const previewTitle = status.previousElementSibling;
-    const sticky = document.createElement('div');
-    sticky.className = 'ws-sticky';
-    panel.insertBefore(sticky, panel.firstChild);
-    sticky.appendChild(head);
-    if (previewTitle && previewTitle.tagName === 'H3') {
-      sticky.appendChild(previewTitle);
-    }
-    sticky.appendChild(preview);
-    if (pager && pager.classList.contains('ws-footer')) {
-      sticky.appendChild(pager);
-    }
-    sticky.appendChild(status);
-
-    const names = {
-      '섹션 제목': '섹션',
-      '기록값': '기록',
-      '세트·수행 상세': '세트 정보',
-      '저장된 메모': '세부내용',
-      '원본 처방': '원본'
-    };
-    root.querySelectorAll('.ws-options label span').forEach(span => {
-      if (names[span.textContent]) {
-        span.textContent = names[span.textContent];
-      }
-    });
-
-    const opts = root.querySelector('.ws-options');
-    if (opts) {
-      const hint = document.createElement('p');
-      hint.className = 'ws-detail-hint';
-      hint.textContent =
-        '세트 정보: Finish 시각·무게×횟수 등 저장된 추가 정보. '
-        + '웜업은 별도 기록이 없어도 원본 프로그램을 선택할 수 있어요.';
-      opts.insertAdjacentElement('afterend', hint);
-    }
-
-    const sizeBox = document.createElement('div');
-    sizeBox.className = 'ws-font-size';
-    controls.appendChild(sizeBox);
-
-    const label = document.createElement('label');
-    label.textContent = '전체 글자 크기';
-    sizeBox.appendChild(label);
-
-    const presets = document.createElement('div');
-    presets.className = 'ws-font-size-row';
-    sizeBox.appendChild(presets);
-
-    const row = document.createElement('div');
-    row.className = 'ws-font-size-row';
-    sizeBox.appendChild(row);
-
-    const slider = document.createElement('input');
-    slider.type = 'range';
-    slider.min = '24';
-    slider.max = '72';
-    slider.step = '1';
-    slider.setAttribute('aria-label', '전체 글자 크기');
-    sizeBox.appendChild(slider);
-
-    const output = document.createElement('output');
-    output.setAttribute('aria-live', 'polite');
-
-    function button(parent, text, fn) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.textContent = text;
-      b.onclick = fn;
-      parent.appendChild(b);
-      return b;
-    }
-
-    const presetButtons = [
-      ['작게', 32], ['중간', 40], ['크게', 48]
-    ].map(([text, n]) => ({
-      n, b: button(presets, text, () => change(n))
-    }));
-
-    button(row, '−', () =>
-      change(window.JogymWorkoutShareFontSize - 1)
-    ).setAttribute('aria-label', '글자 크기 1px 줄이기');
-
-    row.appendChild(output);
-
-    button(row, '+', () =>
-      change(window.JogymWorkoutShareFontSize + 1)
-    ).setAttribute('aria-label', '글자 크기 1px 늘리기');
-
-    function sync() {
-      const n = window.JogymWorkoutShareFontSize;
-      slider.value = String(n);
-      output.textContent = n + ' PX';
-      presetButtons.forEach(({ n: target, b }) =>
-        b.setAttribute('aria-pressed', String(n === target))
-      );
-    }
-
-    function change(n) {
-      window.JogymWorkoutShareFontSize =
-        Math.max(24, Math.min(72, Number(n)));
-      sync();
-      const select = controls.querySelector('select');
-      if (select) {
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    }
-
-    slider.oninput = () => change(slider.value);
-    sync();
-  }
-
-  new MutationObserver(enhance).observe(document.body, {
-    childList: true
-  });
-  enhance();
 })();

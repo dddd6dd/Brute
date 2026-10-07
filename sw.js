@@ -1,5 +1,5 @@
-const CACHE_NAME = 'jogym-shell-v48';
-const SHELL_ASSETS = ['./', './index.html', './icon-192.png', './icon-512.png', './manifest.json', './css/style.css', './js/config.js', './js/utils.js', './js/programs.js', './js/charts.js', './js/records.js', './js/pace.js', './js/progress.js', './js/leaderboard.js', './js/profile.js', './js/admin.js', './js/weight-calculator.js', './js/supabase.js', './js/app.js'];
+const CACHE_NAME = 'jogym-shell-v49';
+const SHELL_ASSETS = ['./', './index.html', './icon-192.png', './icon-512.png', './manifest.json', './css/style.css', './js/config.js', './js/utils.js', './js/programs.js', './js/charts.js', './js/records.js', './js/pace.js', './js/progress.js', './js/leaderboard.js', './js/profile.js', './js/admin.js', './js/weight-calculator.js', './js/supabase.js', './js/workout-share.js', './js/app.js'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -26,10 +26,16 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((res) => {
-        const resClone = res.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone));
+        if (res.ok) {
+          const resClone = res.clone();
+          event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone)));
+        }
         return res;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html')))
+      .catch(() => caches.match(event.request).then(async (cached) => {
+        if (cached) return cached;
+        if (event.request.mode === 'navigate') return (await caches.match('./index.html')) || Response.error();
+        return Response.error();
+      }))
   );
 });
