@@ -890,6 +890,21 @@
 #jn-workout-share .ws-font-size-row output{min-width:66px;text-align:center;font-variant-numeric:tabular-nums;font-size:14px}
 #jn-workout-share input[type=range]{width:100%;height:30px;min-height:0;padding:0;margin:4px 0;appearance:auto;-webkit-appearance:auto;accent-color:var(--border-accent,#2f6fd6);box-shadow:none}
 #jn-workout-share .ws-detail-hint{font-size:12px;line-height:1.5;color:var(--text-secondary,#666);margin:6px 0 12px}
+#jn-workout-share .ws-font-trigger{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:48px;padding:10px 12px;border-radius:12px;background:var(--surface-1,#fff);font-size:18px;text-align:left}
+#jn-workout-share .ws-font-trigger span:first-child{min-width:0;overflow-wrap:anywhere}
+#jn-workout-share .ws-font-arrow{flex-shrink:0;font:16px sans-serif;opacity:.65}
+#jn-workout-share .ws-font-sheet{position:absolute;inset:0;z-index:5;display:grid;place-items:center;padding:12px;background:rgba(0,0,0,.22);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+#jn-workout-share .ws-font-dialog{width:min(700px,100%);max-height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--glass-edge,#ddd);border-radius:22px;background:var(--glass-panel,#fafaf8);box-shadow:var(--glass-shadow-float,0 20px 80px #0004)}
+#jn-workout-share .ws-font-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;flex-shrink:0}
+#jn-workout-share .ws-font-heading h3{margin:0;font-size:16px}
+#jn-workout-share .ws-font-help{padding:0 16px 12px;flex-shrink:0}
+#jn-workout-share .ws-font-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;overflow:auto;overscroll-behavior:contain;min-height:0;padding:4px 16px 16px}
+#jn-workout-share .ws-font-option{display:flex;flex-direction:column;align-items:stretch;gap:8px;min-width:0;min-height:92px;padding:12px;border-radius:14px;text-align:left;background:var(--surface-1,#fff)}
+#jn-workout-share .ws-font-option-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#jn-workout-share .ws-font-name{font-size:22px;line-height:1.35;min-width:0;overflow-wrap:anywhere}
+#jn-workout-share .ws-font-mark{font:16px sans-serif;flex-shrink:0;width:18px;text-align:center}
+#jn-workout-share .ws-font-sample{font-size:18px;line-height:1.5;overflow-wrap:anywhere;opacity:.8}
+@media(max-width:700px){#jn-workout-share .ws-font-sheet{padding:10px}#jn-workout-share .ws-font-list{grid-template-columns:1fr}}
 #jn-workout-share .ws-preview-dock.is-expanded{position:absolute;inset:0;z-index:3;border:0;justify-content:center;padding:16px;background:var(--surface-0,#f2f2f0)}
 #jn-workout-share .ws-preview-dock.is-expanded h3{align-self:center}
 #jn-workout-share .ws-preview-dock.is-expanded h3,#jn-workout-share .ws-preview-dock.is-expanded>.ws-status:not(.ws-scale-hint){display:none}
@@ -925,6 +940,7 @@
       )).map(e => e.key)
     );
     let style = 0, pages = [], page = 0, revision = 0, closed = false;
+    let fontSheet = null;
 
     const root = node('div', null, document.body);
     root.id = 'jn-workout-share';
@@ -962,12 +978,14 @@
     function keys(e) {
       if (e.key === 'Escape') {
         e.preventDefault();
-        end();
+        if (fontSheet) fontSheet.close(); else end();
+        return;
       }
       if (e.key === 'Tab') {
-        const f = [...panel.querySelectorAll(
+        const scope = fontSheet ? fontSheet.dialog : panel;
+        const f = [...scope.querySelectorAll(
           'button,input,select,textarea'
-        )].filter(x => !x.disabled && !x.closest('[inert]'));
+        )].filter(x => !x.disabled && !x.closest('[inert]') && x.getClientRects().length);
         if (!f.length) return;
         const first = f[0], last = f[f.length - 1];
         if (e.shiftKey && (
@@ -1030,10 +1048,76 @@
       s.onchange = () => { cfg[key] = s.value; update(); };
       return s;
     }
-    const fontList = Object.entries(fontLabels);
-    const titleSelect = select('제목 폰트', 'titleFont', fontList);
-    const fontSelect = select('본문 폰트', 'font', fontList);
-    const recordSelect = select('기록 폰트', 'recordFont', fontList);
+    function fontPicker(label, key) {
+      const box = node('div', null, controls);
+      const caption = node('label', label, box);
+      const trigger = node('button', null, box);
+      trigger.type = 'button'; trigger.className = 'ws-font-trigger';
+      trigger.id = 'jn-share-' + key;
+      caption.htmlFor = trigger.id;
+      trigger.setAttribute('aria-label', label);
+      trigger.setAttribute('aria-haspopup', 'dialog');
+      trigger.setAttribute('aria-expanded', 'false');
+      const selectedName = node('span', null, trigger);
+      selectedName.id = trigger.id + '-name';
+      trigger.setAttribute('aria-describedby', selectedName.id);
+      const arrow = node('span', '⌄', trigger);
+      arrow.className = 'ws-font-arrow'; arrow.setAttribute('aria-hidden', 'true');
+      function sync(v) { selectedName.textContent = fontLabels[v]; selectedName.style.fontFamily = fonts[v]; }
+      sync(cfg[key]);
+      trigger.onclick = () => {
+        if (fontSheet) return;
+        const sheet = node('div', null, panel); sheet.className = 'ws-font-sheet';
+        const dialog = node('section', null, sheet); dialog.className = 'ws-font-dialog';
+        dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true');
+        const heading = node('div', null, dialog); heading.className = 'ws-font-heading';
+        const title = node('h3', label + ' 선택', heading); title.id = 'jn-share-font-title';
+        dialog.setAttribute('aria-labelledby', title.id);
+        const dismiss = node('button', '닫기', heading); dismiss.type = 'button';
+        const help = node('p', '폰트 이름과 예시가 실제 글꼴로 표시돼요. 마음에 드는 글꼴을 눌러 적용하세요.', dialog);
+        help.className = 'ws-status ws-font-help'; help.setAttribute('role', 'status');
+        const list = node('div', null, dialog); list.className = 'ws-font-list';
+        const weight = key === 'titleFont' || (key === 'recordFont' && styles[style].boldRecord) ? 700 : 400;
+        const sample = key === 'titleFont' ? 'METCON · TRAINING' : key === 'recordFont' ? '6:42 · 150 KG · 12 REPS' : '12 TOES TO BAR';
+        const choices = Object.entries(fontLabels).map(([v, name]) => {
+          const option = node('button', null, list); option.type = 'button'; option.className = 'ws-font-option';
+          option.dataset.font = v; option.setAttribute('aria-label', name); option.setAttribute('aria-pressed', String(cfg[key] === v));
+          const top = node('span', null, option); top.className = 'ws-font-option-head';
+          const nameText = node('span', name, top); nameText.className = 'ws-font-name'; nameText.style.fontFamily = fonts[v];
+          const mark = node('span', cfg[key] === v ? '✓' : '', top); mark.className = 'ws-font-mark'; mark.setAttribute('aria-hidden', 'true');
+          const example = node('span', sample, option); example.className = 'ws-font-sample'; example.style.fontFamily = fonts[v]; example.style.fontWeight = String(weight);
+          option.onclick = () => { cfg[key] = v; sync(v); hide(); update(); };
+          return option;
+        });
+        function hide() {
+          if (!sheet.isConnected) return;
+          sheet.remove(); head.inert = false; body.inert = false;
+          fontSheet = null; trigger.setAttribute('aria-expanded', 'false');
+          trigger.removeAttribute('aria-controls'); trigger.focus();
+        }
+        dialog.id = 'jn-share-font-dialog';
+        fontSheet = { dialog, close: hide };
+        head.inert = true; body.inert = true;
+        trigger.setAttribute('aria-expanded', 'true'); trigger.setAttribute('aria-controls', dialog.id);
+        dismiss.onclick = hide;
+        sheet.onclick = e => { if (e.target === sheet) hide(); };
+        const current = choices.find(option => option.dataset.font === cfg[key]);
+        if (current) { current.focus(); current.scrollIntoView({ block: 'nearest' }); } else dismiss.focus();
+        if (document.fonts) {
+          help.textContent = '폰트를 불러오는 중이에요. 예시를 보고 마음에 드는 글꼴을 눌러 적용하세요.';
+          Promise.all(Object.keys(fontLabels).map(v => document.fonts.load(weight + ' 20px ' + fonts[v], sample).catch(() => false)))
+            .then(loaded => {
+              if (sheet.isConnected) help.textContent = loaded.includes(false)
+                ? '일부 글꼴을 불러오지 못해 대체 글꼴로 표시될 수 있어요.'
+                : '폰트 이름과 예시가 실제 글꼴로 표시돼요. 마음에 드는 글꼴을 눌러 적용하세요.';
+            });
+        }
+      };
+      return { get value() { return cfg[key]; }, set value(v) { sync(v); } };
+    }
+    const titleSelect = fontPicker('제목 폰트', 'titleFont');
+    const fontSelect = fontPicker('본문 폰트', 'font');
+    const recordSelect = fontPicker('기록 폰트', 'recordFont');
     select('글자색', 'color', [
       ['#ffffff', '화이트'],
       ['#151515', '블랙'],
