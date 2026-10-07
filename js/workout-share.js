@@ -66,7 +66,7 @@
 };
   const styles = [
   {
-    "name": "Minimal",
+    "name": "미니멀",
     "layout": "flow",
     "font": "inter",
     "titleFont": "inter",
@@ -77,7 +77,7 @@
     "gap": 20
   },
   {
-    "name": "Training Log",
+    "name": "트레이닝 로그",
     "layout": "table",
     "font": "inter",
     "titleFont": "spacegrotesk",
@@ -88,7 +88,7 @@
     "gap": 8
   },
   {
-    "name": "Record Focus",
+    "name": "기록 중심",
     "layout": "focus",
     "font": "inter",
     "titleFont": "montserrat",
@@ -100,7 +100,7 @@
     "boldRecord": true
   },
   {
-    "name": "Editorial",
+    "name": "에디토리얼",
     "layout": "flow",
     "font": "playfairdisplay",
     "titleFont": "dmserifdisplay",
@@ -112,7 +112,7 @@
     "center": true
   },
   {
-    "name": "Poster",
+    "name": "포스터",
     "layout": "poster",
     "font": "mono",
     "titleFont": "archivoblack",
@@ -126,7 +126,7 @@
     "boldRecord": true
   },
   {
-    "name": "Timeline",
+    "name": "타임라인",
     "layout": "timeline",
     "font": "inter",
     "titleFont": "oswald",
@@ -138,7 +138,7 @@
     "accent": true
   },
   {
-    "name": "Scorecards",
+    "name": "스코어카드",
     "layout": "cards",
     "font": "inter",
     "titleFont": "montserrat",
@@ -150,7 +150,7 @@
     "boldRecord": true
   },
   {
-    "name": "Ticket",
+    "name": "티켓",
     "layout": "ticket",
     "font": "inter",
     "titleFont": "bebasneue",
@@ -163,7 +163,7 @@
     "accent": true
   },
   {
-    "name": "Receipt",
+    "name": "영수증",
     "layout": "receipt",
     "font": "ibmplexmono",
     "titleFont": "ibmplexmono",
@@ -175,7 +175,7 @@
     "upperBody": true
   },
   {
-    "name": "Dashboard",
+    "name": "대시보드",
     "layout": "dashboard",
     "font": "inter",
     "titleFont": "spacegrotesk",
@@ -938,6 +938,7 @@
 #jn-workout-share .ws-preview.is-dark-text{background-color:#f6f6f3;background-image:conic-gradient(#e5e5e2 25%,transparent 0 50%,#e5e5e2 0 75%,transparent 0)}
 #jn-workout-share .ws-status{font-size:12px;line-height:1.5;min-height:18px;margin:0;color:var(--text-secondary,#666);white-space:pre-line;overflow-wrap:anywhere}
 #jn-workout-share .ws-preview-dock .ws-status{text-align:center}
+#jn-workout-share .ws-status:empty{display:none}
 #jn-workout-share .ws-font-size{grid-column:1/-1}
 #jn-workout-share .ws-font-size-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
 #jn-workout-share .ws-font-size-row output{min-width:66px;text-align:center;font-variant-numeric:tabular-nums;font-size:14px}
@@ -965,7 +966,7 @@
 @media(max-width:700px){#jn-workout-share .ws-font-sheet{padding:10px}#jn-workout-share .ws-font-list{grid-template-columns:1fr}}
 #jn-workout-share .ws-preview-dock.is-expanded{position:absolute;inset:0;z-index:3;border:0;justify-content:center;padding:16px;background:var(--surface-0,#f2f2f0)}
 #jn-workout-share .ws-preview-dock.is-expanded h3{align-self:center}
-#jn-workout-share .ws-preview-dock.is-expanded h3,#jn-workout-share .ws-preview-dock.is-expanded>.ws-status:not(.ws-scale-hint){display:none}
+#jn-workout-share .ws-preview-dock.is-expanded h3{display:none}
 @media(max-width:700px){#jn-workout-share{padding:6px}#jn-workout-share .ws-panel{height:calc(100dvh - 12px);border-radius:22px}#jn-workout-share .ws-head{padding:10px 14px}#jn-workout-share .ws-body{display:flex;flex-direction:column}#jn-workout-share .ws-preview-dock{flex-shrink:0;border-right:0;border-bottom:1px solid var(--border);padding:10px 14px;gap:5px;overflow:hidden}#jn-workout-share .ws-preview-dock h3{display:none}#jn-workout-share .ws-preview-dock .ws-footer button{min-height:32px;font-size:12px;padding:6px 10px}#jn-workout-share .ws-settings{flex:1;padding:0 14px 20px}#jn-workout-share .ws-controls{grid-template-columns:1fr}#jn-workout-share .ws-preview-dock.is-expanded h3{display:block}}
 @media(prefers-reduced-transparency:reduce){#jn-workout-share .ws-panel,#jn-workout-share .ws-head{background:var(--surface-0);backdrop-filter:none;-webkit-backdrop-filter:none}}
 @media(prefers-reduced-motion:reduce){#jn-workout-share button{transition:none}}
@@ -1137,7 +1138,7 @@
         const title = node('h3', label + ' 선택', heading); title.id = 'jn-share-font-title';
         dialog.setAttribute('aria-labelledby', title.id);
         const dismiss = node('button', '닫기', heading); dismiss.type = 'button';
-        const help = node('p', '폰트 이름과 예시가 실제 글꼴로 표시돼요. 마음에 드는 글꼴을 눌러 적용하세요.', dialog);
+        const help = node('p', '', dialog);
         help.className = 'ws-status ws-font-help'; help.setAttribute('role', 'status');
         const list = node('div', null, dialog); list.className = 'ws-font-list';
         const weight = key === 'titleFont' || (key === 'recordFont' && styles[style].boldRecord) ? 700 : 400;
@@ -1167,12 +1168,12 @@
         const current = choices.find(option => option.dataset.font === cfg[key]);
         if (current) { current.focus(); current.scrollIntoView({ block: 'nearest' }); } else dismiss.focus();
         if (document.fonts) {
-          help.textContent = '폰트를 불러오는 중이에요. 예시를 보고 마음에 드는 글꼴을 눌러 적용하세요.';
+          help.textContent = '폰트 로딩 중…';
           Promise.all(Object.keys(fontLabels).map(v => document.fonts.load(weight + ' 20px ' + fonts[v], sample).catch(() => false)))
             .then(loaded => {
               if (sheet.isConnected) help.textContent = loaded.includes(false)
                 ? '일부 글꼴을 불러오지 못해 대체 글꼴로 표시될 수 있어요.'
-                : '폰트 이름과 예시가 실제 글꼴로 표시돼요. 마음에 드는 글꼴을 눌러 적용하세요.';
+                : '';
             });
         }
       };
@@ -1196,9 +1197,15 @@
 
     const backgroundControls = node('div', null, controls); backgroundControls.className = 'ws-background-controls';
     const backgroundSelect = select('PNG 배경', 'background', [['transparent', '투명'], ['charcoal', '차콜'], ['paper', '아이보리'], ['midnight', '미드나잇 그라데이션'], ['dusk', '더스크 그라데이션'], ['photo', '내 사진']], backgroundControls);
-    const photoOption = backgroundSelect.querySelector('option[value=photo]'); photoOption.disabled = true;
     function syncBackgroundColor() { cfg.color = cfg.background === 'paper' ? '#151515' : '#ffffff'; colorSelect.value = cfg.color; }
-    backgroundSelect.onchange = () => { cfg.background = backgroundSelect.value; syncBackgroundColor(); update(); };
+    backgroundSelect.onchange = () => {
+      if (backgroundSelect.value === 'photo' && !cfg.photoImage) {
+        backgroundSelect.value = cfg.background;
+        photoInput.click();
+        return;
+      }
+      cfg.background = backgroundSelect.value; syncBackgroundColor(); update();
+    };
     select('글자 뒤 박스', 'textBox', [['none', '없음'], ['dark', '다크 라운드'], ['light', '화이트 라운드'], ['accent', '강조색 라운드']], backgroundControls);
     select('박스 범위', 'boxScope', [['all', '전체 글자'], ['titleRecord', '제목·기록만']], backgroundControls);
     function backgroundSlider(label, key, min, max) {
@@ -1212,39 +1219,42 @@
     backgroundSlider('박스 불투명도', 'boxOpacity', 55, 100);
     const photoBox = node('div', null, backgroundControls); photoBox.className = 'ws-wide';
     node('label', '배경 사진', photoBox);
-    const photoInput = node('input', null, photoBox); photoInput.type = 'file'; photoInput.accept = 'image/jpeg,image/png,image/webp'; photoInput.hidden = true; photoInput.setAttribute('aria-label', '배경 사진 파일');
+    const photoInput = node('input', null, photoBox); photoInput.type = 'file'; photoInput.accept = 'image/*'; photoInput.hidden = true; photoInput.setAttribute('aria-label', '배경 사진 파일');
     const photoActions = node('div', null, photoBox); photoActions.className = 'ws-photo-actions';
     const choosePhoto = node('button', '사진 선택', photoActions); choosePhoto.type = 'button'; choosePhoto.onclick = () => photoInput.click();
     const clearPhoto = node('button', '사진 지우기', photoActions); clearPhoto.type = 'button'; clearPhoto.disabled = true;
-    const photoHint = node('p', '사진은 화면을 채우도록 가운데를 기준으로 맞춰져요.', photoBox); photoHint.className = 'ws-status';
+    const photoHint = node('p', '', photoBox); photoHint.className = 'ws-status';
     photoInput.onchange = () => {
       const file = photoInput.files[0]; if (!file) return;
-      if (!/^image\/(?:jpeg|png|webp)$/.test(file.type)) { photoHint.textContent = 'JPG, PNG, WebP 사진을 선택해주세요.'; photoInput.value = ''; return; }
+      if (file.type && !/^image\//i.test(file.type)) { photoHint.textContent = '사진 파일을 선택해주세요.'; photoInput.value = ''; return; }
       const token = ++photoVersion, url = URL.createObjectURL(file), image = new Image(); photoURLs.add(url);
       photoHint.textContent = '사진을 불러오는 중이에요.';
       image.onload = () => {
         if (closed || token !== photoVersion) { URL.revokeObjectURL(url); photoURLs.delete(url); return; }
         photoURLs.forEach(old => { if (old !== url) { URL.revokeObjectURL(old); photoURLs.delete(old); } });
-        cfg.photoImage = image; cfg.background = 'photo'; backgroundSelect.value = 'photo'; photoOption.disabled = false;
-        clearPhoto.disabled = false; choosePhoto.textContent = '사진 변경'; photoHint.textContent = file.name + ' · 가운데를 기준으로 채워요.'; syncBackgroundColor(); update();
+        cfg.photoImage = image; cfg.background = 'photo'; backgroundSelect.value = 'photo';
+        clearPhoto.disabled = false; choosePhoto.textContent = '사진 변경'; photoHint.textContent = file.name; syncBackgroundColor(); update();
       };
-      image.onerror = () => { URL.revokeObjectURL(url); photoURLs.delete(url); if (!closed && token === photoVersion) photoHint.textContent = '사진을 불러오지 못했어요. JPG, PNG, WebP 파일을 다시 선택해주세요.'; };
+      image.onerror = () => {
+        URL.revokeObjectURL(url); photoURLs.delete(url);
+        if (!closed && token === photoVersion) photoHint.textContent = /heic|heif/i.test(file.type + ' ' + file.name)
+          ? '이 브라우저에서 HEIC 사진을 열 수 없어요. JPG로 변환한 사진이나 스크린샷을 선택해주세요.'
+          : '사진을 불러오지 못했어요. JPG, PNG, WebP 사진을 다시 선택해주세요.';
+      };
       image.src = url; photoInput.value = '';
     };
     clearPhoto.onclick = () => {
       photoVersion++; photoURLs.forEach(url => URL.revokeObjectURL(url)); photoURLs.clear(); cfg.photoImage = null;
-      photoOption.disabled = true; clearPhoto.disabled = true; choosePhoto.textContent = '사진 선택';
-      photoHint.textContent = '사진은 화면을 채우도록 가운데를 기준으로 맞춰져요.';
+      clearPhoto.disabled = true; choosePhoto.textContent = '사진 선택';
+      photoHint.textContent = '';
       if (cfg.background === 'photo') { cfg.background = 'transparent'; backgroundSelect.value = 'transparent'; }
       update();
     };
     backgroundSlider('사진 어둡게', 'photoShade', 0, 70);
-    const boxHint = node('p', '글자 박스 안의 글자색은 배경에 맞춰 자동으로 조정돼요. 박스와 선택한 배경은 PNG에도 저장돼요.', backgroundControls);
-    boxHint.className = 'ws-detail-hint ws-wide';
 
     const sizeBox = node('div', null, controls);
     sizeBox.className = 'ws-font-size';
-    node('label', '기록 글자 크기 · PNG 기준', sizeBox);
+    node('label', '기록 글자 크기', sizeBox);
     const presets = node('div', null, sizeBox);
     presets.className = 'ws-font-size-row';
     const presetButtons = [['작게', 32], ['중간', 40], ['크게', 48]].map(([label, n]) => {
@@ -1265,8 +1275,6 @@
     minus.onclick = () => changeSize(cfg.fontSize - 1);
     plus.onclick = () => changeSize(cfg.fontSize + 1);
     slider.oninput = () => changeSize(Number(slider.value));
-    const fontHint = node('p', '기록 글자 기준이에요. 테마별 실제 크기는 미리보기 아래에서 확인할 수 있어요.', sizeBox);
-    fontHint.className = 'ws-detail-hint';
     function syncSize() {
       slider.value = String(cfg.fontSize); output.textContent = cfg.fontSize + ' px';
       minus.disabled = cfg.fontSize <= 24; plus.disabled = cfg.fontSize >= 72;
@@ -1300,23 +1308,13 @@
       check(opts, t, cfg[k], v => { cfg[k] = v; update(); })
     );
 
-    const hint = node('p', '한국어 안내는 기본 숨김이에요. 체크하면 의도·목표, 동작·전환 설명, 기록 방법 등 원본 안내를 함께 표시해요. 실제 운동 기록은 기록 옵션으로 표시해요.', settings);
-    hint.className = 'ws-detail-hint';
     node('label', '각주', settings);
     const foot = node('textarea', null, settings);
     foot.rows = 2;
     foot.maxLength = 300;
-    foot.placeholder = '필요한 문구만 직접 입력';
     foot.setAttribute('aria-label', '각주');
     foot.oninput = () => { cfg.foot = foot.value; update(); };
 
-    const caution = node(
-      'p',
-      '원본 처방은 실제 대체한 운동과 다를 수 있어요. '
-      + '투명 배경의 체크 무늬는 저장되지 않아요.',
-      settings
-    );
-    caution.className = 'ws-status';
 
     node('h3', '4. 운동 섹션 · 개별 운동', settings);
     [...new Set(entries.map(e => e.section))].forEach(section => {
@@ -1385,13 +1383,9 @@
       settings.inert = expanded; head.inert = expanded;
       fitPreview();
     };
-    const scaleHint = node('p', '', dock);
-    scaleHint.className = 'ws-status ws-scale-hint';
-    const transparencyHint = node('p', '체크 무늬는 저장되지 않아요 · 투명 PNG', dock);
-    transparencyHint.className = 'ws-status';
     function fitPreview() {
       const canvas = pages[page];
-      if (!canvas) { preview.style.width = '0px'; scaleHint.textContent = ''; return; }
+      if (!canvas) { preview.style.width = '0px'; return; }
       const mobile = window.innerWidth <= 700;
       const expanded = dock.classList.contains('is-expanded');
       const visible = [...dock.children].filter(e => e !== preview && e.getClientRects().length);
@@ -1405,13 +1399,6 @@
       const maxW = Math.max(1, dock.clientWidth - 32);
       const w = Math.min(expanded ? 430 : 320, maxW, maxH * canvas.width / canvas.height);
       preview.style.width = w + 'px';
-      const scale = w / canvas.width;
-      const recordMin = Number(canvas.dataset.recordMin || cfg.fontSize * styles[style].record / 20);
-      const recordMax = Number(canvas.dataset.recordMax || recordMin);
-      const px = n => String(Math.round(n * 10) / 10);
-      const recordPx = px(recordMin) + (Math.abs(recordMax - recordMin) > .1 ? '–' + px(recordMax) : '');
-      scaleHint.textContent = canvas.width + ' × ' + canvas.height + ' px · ' + Math.round(scale * 100) + '% 미리보기'
-        + '\n기록 글자: PNG ' + recordPx + ' px → 화면 ' + px(recordMin * scale) + (Math.abs(recordMax - recordMin) > .1 ? '–' + px(recordMax * scale) : '') + ' px';
     }
     const resizeObserver = new ResizeObserver(fitPreview);
     resizeObserver.observe(dock);
@@ -1436,6 +1423,7 @@
     async function update() {
       const token = ++revision;
       save.disabled = copy.disabled = true;
+      foot.style.fontFamily = fonts[cfg.font];
       try {
         if (document.fonts) {
           const needed = new Set([cfg.font, cfg.titleFont, cfg.recordFont, 'silkscreen']);
@@ -1455,14 +1443,8 @@
           thumb.style.background =
             cfg.color === '#151515' ? '#eee' : '#555';
         });
-        status.textContent = list.length
-          ? list.length + '개 운동 · ' + pages.length
-            + '장 · ' + (cfg.background === 'transparent' ? '투명 바탕' : '배경 포함') + (cfg.textBox !== 'none' ? ' · 글자 박스' : '')
-          : '공유할 운동을 선택해주세요.';
+        status.textContent = list.length ? '' : '공유할 운동을 선택해주세요.';
         show();
-        transparencyHint.textContent = cfg.background === 'transparent'
-          ? (cfg.textBox === 'none' ? '체크 무늬는 저장되지 않아요 · 투명 PNG' : '체크 무늬는 저장되지 않아요 · 글자 박스는 저장돼요')
-          : '선택한 배경이 PNG에도 저장돼요';
       } catch (e) {
         if (token === revision) {
           pages = [];
@@ -1491,9 +1473,7 @@
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 60000);
-        status.textContent = number
-          + '번째 PNG 다운로드를 요청했어요. '
-          + '다음 이미지도 각각 저장할 수 있어요.';
+        status.textContent = 'PNG 저장';
       }, 'image/png');
     };
 
