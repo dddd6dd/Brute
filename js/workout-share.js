@@ -346,6 +346,25 @@
       .split('\n').map(line => line.trim()).filter(Boolean);
   }
 
+  function visiblePrescriptionLines(text, showIntent) {
+    const lines = prescriptionLines(text);
+    if (showIntent) return lines;
+    let inIntent = false;
+    return lines.filter(line => {
+      const plain = String(line).trim().replace(/^\d+[.)]\s*/, '')
+        .replace(/^[^\p{L}\p{N}]+/u, '').replace(/[\[\]()*_]/g, '').trim();
+      const heading = /^(?:(?:오늘의|운동|와드|훈련|WOD)\s*)?(?:의도|목적|자극|포커스|목표(?:\s*(?:기록|시간|페이스))?|intent(?:ion)?|stimulus|goal|target)(?=$|[\s:：/·-]|은|는|를|을)/i.test(plain);
+      if (heading) { inIntent = true; return false; }
+      if (!plain) { inIntent = false; return true; }
+      if (/^(?:휴식|스케일(?:링)?|기록|라운드|세트|동작|REST\b|TIME CAP\b)/i.test(plain)) { inIntent = false; return true; }
+      // Only follow clearly marked coaching text. Other Korean workout lines stay.
+      if (inIntent && ((/[가-힣]/.test(plain) && !/\d/.test(plain)) ||
+        /^\d+(?:\s*[-–~]\s*\d+)?\s*(?:분|초|minutes?|mins?|seconds?|secs?)(?=$|\s|이내|정도|안에)/i.test(plain))) return false;
+      inIntent = false;
+      return true;
+    });
+  }
+
   function labelKey(text) {
     return String(text || '').replace(/^\s*(?:\d+|[A-Za-z])[.)]\s*/, '')
       .trim().toLowerCase().replace(/\s+/g, ' ');
@@ -372,7 +391,7 @@
       const key = entry.section + '\n' + (item ? item.subsection || '' : '');
       if (!groups.has(key)) groups.set(key, []);
       const lines = (cfg.prescribed || !entry.rows.length) && entry.prescribed
-        ? prescriptionLines(entry.prescribed).filter(line => !/^\s*(?:WORKOUT|원본 처방)\s*:?\s*$/i.test(line)) : [];
+        ? visiblePrescriptionLines(entry.prescribed, cfg.intent).filter(line => !/^\s*(?:WORKOUT|원본 처방)\s*:?\s*$/i.test(line)) : [];
       const internalRest = lines.some(line => /^(?:\d+\s*(?:sets?|rounds?)\b|EMOM\b|E\d+MOM\b|every\b)/i.test(line));
       const rests = lines.map((line, index) => ({ index, seconds: restDuration(line) }))
         .filter(rest => rest.seconds != null);
@@ -897,7 +916,7 @@
     const cfg = {
       font: 'inter', titleFont: 'inter', recordFont: 'inter', accent: '#ff5b24', color: '#ffffff', size: 'portrait', fontSize: 40,
       date: true, sections: true, records: true, details: false,
-      notes: false, prescribed: true, foot: ''
+      notes: false, prescribed: true, intent: false, foot: ''
     };
     const defaults = entries.filter(e => /metcon|메트콘/i.test(e.section));
     const selected = new Set(
@@ -1080,12 +1099,13 @@
       ['records', '기록'],
       ['details', '세트 정보'],
       ['notes', '세부내용'],
-      ['prescribed', '원본']
+      ['prescribed', '원본'],
+      ['intent', '의도·목표']
     ].forEach(([k, t]) =>
       check(opts, t, cfg[k], v => { cfg[k] = v; update(); })
     );
 
-    const hint = node('p', '원본에 기록을 붙여 간결하게 보여줘요. 세트 정보는 Finish·무게×횟수 등 추가 정보를 표시해요.', settings);
+    const hint = node('p', '원본에 기록을 붙여 간결하게 보여줘요. 의도·목표 설명은 기본 숨김이며 체크하면 표시해요. 세트 정보는 Finish·무게×횟수 등 추가 정보를 표시해요.', settings);
     hint.className = 'ws-detail-hint';
     node('label', '각주', settings);
     const foot = node('textarea', null, settings);
