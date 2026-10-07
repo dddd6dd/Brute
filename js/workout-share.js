@@ -128,6 +128,23 @@
       });
     });
 
+
+    program.filter(it =>
+      /warm\s*-?\s*up|웜업|워밍업/i.test(sec(it.section))
+    ).forEach(it => {
+      const section = sec(it.section);
+      const key = section + '\n' + it.name;
+      if (!map.has(key)) {
+        const entry = {
+          key, section, name: it.name,
+          prescribed: String(it.prescribed || ''),
+          rows: []
+        };
+        map.set(key, entry);
+        out.push(entry);
+      }
+    });
+
     const order = new Map(program.map((it, i) => [it.name, i]));
     out.sort((a, b) =>
       (order.has(a.name) ? order.get(a.name) : 1e6)
@@ -173,6 +190,7 @@
 
     function add(text, size, bold, gap, align) {
       text = shareEnglish(text);
+      size *= (window.JogymWorkoutShareFontSize || 40) / 40;
       measure.font = (bold ? '600 ' : '400 ')
         + size + 'px ' + fonts[cfg.font];
       wrap(measure, text, W - pad * 2).forEach(t =>
@@ -218,7 +236,7 @@
             style === 3 ? 'center' : 'left');
         }
       });
-      if (cfg.prescribed && e.prescribed) {
+      if ((cfg.prescribed || !e.rows.length) && e.prescribed) {
         add('원본 처방', 13, true, 3);
         add(e.prescribed, 15, false, 8);
       }
@@ -279,7 +297,7 @@
         );
       });
       if (pages.length > 1) {
-        ctx.font = '12px ' + fonts[cfg.font];
+        ctx.font = (12 * (window.JogymWorkoutShareFontSize || 40) / 40) + 'px ' + fonts[cfg.font];
         ctx.textAlign = 'right';
         ctx.fillText(
           (i + 1) + ' / ' + pages.length,
@@ -646,7 +664,7 @@
           if (cfg.details) parts.push(...r.detail);
           if (cfg.notes && r.note) parts.push('※ ' + r.note);
         });
-        if (cfg.prescribed && e.prescribed) {
+        if ((cfg.prescribed || !e.rows.length) && e.prescribed) {
           parts.push('원본 처방\n' + e.prescribed);
         }
         parts.push('');
@@ -742,4 +760,165 @@
     };
     return box;
   };
+})();
+
+
+(function () {
+  'use strict';
+  window.JogymWorkoutShareFontSize = 40;
+
+  const sheet = document.createElement('style');
+  sheet.id = 'jn-share-ui-fix-css';
+  sheet.textContent = [
+    '#jn-workout-share .ws-panel select{height:auto!important;min-height:44px;line-height:1.4;padding:10px 12px;max-width:100%;min-width:0}',
+    '#jn-workout-share .ws-panel textarea{height:auto;min-height:72px;line-height:1.5}',
+    '#jn-workout-share .ws-controls>div{min-width:0}',
+    '#jn-workout-share .ws-design span{white-space:normal;overflow-wrap:anywhere;line-height:1.4}',
+    '#jn-workout-share .ws-sticky{position:sticky;top:0;z-index:2;background:var(--surface-0,#f7f7f7);padding:8px 0 10px;border-bottom:1px solid var(--border,#ddd);margin-bottom:14px}',
+    '#jn-workout-share .ws-sticky .ws-head{margin-bottom:8px}',
+    '#jn-workout-share .ws-sticky h3{margin:0 0 6px;font-size:13px}',
+    '#jn-workout-share .ws-sticky .ws-preview{margin:0 auto;padding:8px;max-width:340px}',
+    '#jn-workout-share .ws-sticky canvas{width:auto;max-width:100%;height:auto;max-height:clamp(110px,22dvh,210px);margin:auto}',
+    '#jn-workout-share .ws-sticky .ws-footer{margin-top:6px;align-items:center;gap:6px}',
+    '#jn-workout-share .ws-sticky .ws-footer button{height:30px;padding:0 8px;font-size:12px;line-height:1.2}',
+    '#jn-workout-share .ws-sticky .ws-status{margin:4px 0 0;font-size:12px;min-height:16px}',
+    '#jn-workout-share .ws-font-size{grid-column:1/-1}',
+    '#jn-workout-share .ws-font-size-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}',
+    '#jn-workout-share .ws-font-size-row button{height:36px;min-width:38px;padding:0 10px;line-height:1.2;white-space:nowrap}',
+    '#jn-workout-share .ws-font-size-row button[aria-pressed=true]{background:var(--text-primary,#171717);color:var(--surface-0,#fff)}',
+    '#jn-workout-share .ws-font-size-row output{min-width:58px;text-align:center;font-variant-numeric:tabular-nums}',
+    '#jn-workout-share .ws-panel input[type=range]{height:28px;min-height:0;width:100%;padding:0;margin:8px 0 0;appearance:auto;-webkit-appearance:auto;accent-color:var(--text-primary,#171717)}',
+    '#jn-workout-share .ws-detail-hint{font-size:12px;line-height:1.5;color:var(--text-secondary,#666);margin:4px 0 12px}'
+  ].join('\n');
+  document.head.appendChild(sheet);
+
+  function enhance() {
+    const root = document.getElementById('jn-workout-share');
+    if (!root || root.dataset.uiFixed) return;
+
+    const panel = root.querySelector('.ws-panel');
+    const head = root.querySelector('.ws-head');
+    const preview = root.querySelector('.ws-preview');
+    const status = root.querySelector('[role="status"]');
+    const controls = root.querySelector('.ws-controls');
+    if (!panel || !head || !preview || !status || !controls) return;
+    root.dataset.uiFixed = '1';
+
+    const pager = preview.nextElementSibling;
+    const previewTitle = status.previousElementSibling;
+    const sticky = document.createElement('div');
+    sticky.className = 'ws-sticky';
+    panel.insertBefore(sticky, panel.firstChild);
+    sticky.appendChild(head);
+    if (previewTitle && previewTitle.tagName === 'H3') {
+      sticky.appendChild(previewTitle);
+    }
+    sticky.appendChild(preview);
+    if (pager && pager.classList.contains('ws-footer')) {
+      sticky.appendChild(pager);
+    }
+    sticky.appendChild(status);
+
+    const names = {
+      '섹션 제목': '섹션',
+      '기록값': '기록',
+      '세트·수행 상세': '세트 정보',
+      '저장된 메모': '세부내용',
+      '원본 처방': '원본'
+    };
+    root.querySelectorAll('.ws-options label span').forEach(span => {
+      if (names[span.textContent]) {
+        span.textContent = names[span.textContent];
+      }
+    });
+
+    const opts = root.querySelector('.ws-options');
+    if (opts) {
+      const hint = document.createElement('p');
+      hint.className = 'ws-detail-hint';
+      hint.textContent =
+        '세트 정보: Finish 시각·무게×횟수 등 저장된 추가 정보. '
+        + '웜업은 별도 기록이 없어도 원본 프로그램을 선택할 수 있어요.';
+      opts.insertAdjacentElement('afterend', hint);
+    }
+
+    const sizeBox = document.createElement('div');
+    sizeBox.className = 'ws-font-size';
+    controls.appendChild(sizeBox);
+
+    const label = document.createElement('label');
+    label.textContent = '전체 글자 크기';
+    sizeBox.appendChild(label);
+
+    const presets = document.createElement('div');
+    presets.className = 'ws-font-size-row';
+    sizeBox.appendChild(presets);
+
+    const row = document.createElement('div');
+    row.className = 'ws-font-size-row';
+    sizeBox.appendChild(row);
+
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = '24';
+    slider.max = '72';
+    slider.step = '1';
+    slider.setAttribute('aria-label', '전체 글자 크기');
+    sizeBox.appendChild(slider);
+
+    const output = document.createElement('output');
+    output.setAttribute('aria-live', 'polite');
+
+    function button(parent, text, fn) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = text;
+      b.onclick = fn;
+      parent.appendChild(b);
+      return b;
+    }
+
+    const presetButtons = [
+      ['작게', 32], ['중간', 40], ['크게', 48]
+    ].map(([text, n]) => ({
+      n, b: button(presets, text, () => change(n))
+    }));
+
+    button(row, '−', () =>
+      change(window.JogymWorkoutShareFontSize - 1)
+    ).setAttribute('aria-label', '글자 크기 1px 줄이기');
+
+    row.appendChild(output);
+
+    button(row, '+', () =>
+      change(window.JogymWorkoutShareFontSize + 1)
+    ).setAttribute('aria-label', '글자 크기 1px 늘리기');
+
+    function sync() {
+      const n = window.JogymWorkoutShareFontSize;
+      slider.value = String(n);
+      output.textContent = n + ' PX';
+      presetButtons.forEach(({ n: target, b }) =>
+        b.setAttribute('aria-pressed', String(n === target))
+      );
+    }
+
+    function change(n) {
+      window.JogymWorkoutShareFontSize =
+        Math.max(24, Math.min(72, Number(n)));
+      sync();
+      const select = controls.querySelector('select');
+      if (select) {
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+
+    slider.oninput = () => change(slider.value);
+    sync();
+  }
+
+  new MutationObserver(enhance).observe(document.body, {
+    childList: true
+  });
+  enhance();
 })();
