@@ -350,35 +350,18 @@
     const lines = prescriptionLines(text);
     if (showIntent) return lines;
     let inIntent = false;
-    const coaching = /의도|목표|목적|자극|포커스|전환|기록|설명|안내|동작(?:은|을|이)|호흡(?:은|을)|페이스(?:는|를)|빠르게|짧게|천천히|일정하게|전체\s*시간/;
-    function isWorkout(line) {
-      line = String(line).trim().replace(/^[^\p{L}\p{N}]+/u, '');
-      if (coaching.test(line)) return false;
-      if (!/[가-힣]/.test(line)) return /[A-Za-z]{3}/.test(line);
-      return /^\d+(?:[-–/x.:]\d+)*(?:\s*(?:cal|kg|lbs?|cm|m|ft))?\s+[A-Za-z]/i.test(line)
-        || /^\d+(?:[-–/x]\d+)*\s*(?!(?:세트|라운드|분|초|회|개))[가-힣][가-힣\s]*$/.test(line)
-        || /^[가-힣\s]+\s+\d+(?:[-–/]\d+)*(?:\s*(?:회|개|kg|lbs?|미터|m))?$/i.test(line);
-    }
-    return lines.flatMap(line => {
+    return lines.filter(line => {
       const plain = String(line).trim().replace(/^\d+[.)]\s*/, '')
         .replace(/^[^\p{L}\p{N}]+/u, '').replace(/[\[\]()*_]/g, '').trim();
       const heading = /^(?:(?:오늘의|운동|와드|훈련|WOD)\s*)?(?:의도|목적|자극|포커스|목표(?:\s*(?:기록|시간|페이스))?|intent(?:ion)?|stimulus|goal|target)(?=$|[\s:：/·-]|은|는|를|을)/i.test(plain);
-      if (heading) { inIntent = true; return []; }
-      if (!plain) return [];
-      if (inIntent && /^\d+(?:\s*[-–~]\s*\d+)?\s*(?:분|초|minutes?|mins?|seconds?|secs?)(?:\s*(?:이내|정도|안에).*)?\s*$/i.test(plain)) return [];
-      // Korean coaching/recording directions are optional, including numeric prose.
-      // Preserve actual quantified movements and the English prescription alongside them.
-      let visible = String(line).trim().replace(/\s*[([]([^\])]*[가-힣][^\])]*)[)\]]/g, (whole, note) =>
-        coaching.test(note) || !/\d/.test(note) ? '' : whole);
-      const marker = visible.search(coaching);
-      if (marker >= 0) {
-        const prefix = visible.slice(0, marker).replace(/[\s,:：;·/—–-]+$/g, '');
-        visible = isWorkout(prefix) ? prefix : '';
-      }
-      if (visible && /[가-힣]/.test(visible) && !isWorkout(visible)) return [];
-      if (!visible) return [];
+      if (heading) { inIntent = true; return false; }
+      if (!plain) { inIntent = false; return true; }
+      if (/^(?:휴식|스케일(?:링)?|기록|라운드|세트|동작|REST\b|TIME CAP\b)/i.test(plain)) { inIntent = false; return true; }
+      // Only follow clearly marked coaching text. Other Korean workout lines stay.
+      if (inIntent && ((/[가-힣]/.test(plain) && !/\d/.test(plain)) ||
+        /^\d+(?:\s*[-–~]\s*\d+)?\s*(?:분|초|minutes?|mins?|seconds?|secs?)(?=$|\s|이내|정도|안에)/i.test(plain))) return false;
       inIntent = false;
-      return [visible];
+      return true;
     });
   }
 
@@ -1201,12 +1184,12 @@
       ['details', '세트 정보'],
       ['notes', '세부내용'],
       ['prescribed', '원본'],
-      ['intent', '한국어 안내']
+      ['intent', '의도·목표']
     ].forEach(([k, t]) =>
       check(opts, t, cfg[k], v => { cfg[k] = v; update(); })
     );
 
-    const hint = node('p', '한국어 안내는 기본 숨김이에요. 체크하면 의도·목표, 동작·전환 설명, 기록 방법 등 원본 안내를 함께 표시해요. 실제 운동 기록은 기록 옵션으로 표시해요.', settings);
+    const hint = node('p', '원본에 기록을 붙여 간결하게 보여줘요. 의도·목표 설명은 기본 숨김이며 체크하면 표시해요. 세트 정보는 Finish·무게×횟수 등 추가 정보를 표시해요.', settings);
     hint.className = 'ws-detail-hint';
     node('label', '각주', settings);
     const foot = node('textarea', null, settings);
