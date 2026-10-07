@@ -495,6 +495,8 @@
     }
     function text(ops, string, x, y, maxWidth, role, extra) {
       const spec = Object.assign(styleFor(role), extra);
+      const sizeGroup = spec.sizeGroup || (role === 'section' ? 'title' : role === 'record' ? 'record' : 'body');
+      spec.size *= cfg.sizeAdjust && cfg.sizeAdjust[sizeGroup] || 1;
       measure.font = spec.weight + ' ' + spec.size + 'px ' + fonts[spec.key];
       if (spec.fit && measure.measureText(string).width > maxWidth) {
         spec.size *= maxWidth / measure.measureText(string).width;
@@ -513,6 +515,7 @@
         const string = theme.upperBody && line.role === 'body' ? line.text.toUpperCase() : line.text;
         if (line.value && !center) {
           const scoreStyle = styleFor('record');
+          scoreStyle.size *= cfg.sizeAdjust && cfg.sizeAdjust.record || 1;
           measure.font = scoreStyle.weight + ' ' + scoreStyle.size + 'px ' + fonts[scoreStyle.key];
           const reserved = measure.measureText(line.value).width + 20 * scale;
           if (reserved < maxWidth * .52) {
@@ -600,7 +603,7 @@
         if (mode === 'poster' && /^\d{4}-\d{2}-\d{2}$/.test(first.text)) {
           const d = new Date(first.text + 'T00:00:00Z');
           const day = ['SUN','MON','TUE','WED','THU','FRI','SAT'][d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getUTCMonth()];
-          h += text(ops, day, left, h + 2, columnW, 'date', { key: headerKey, size: 18 * scale, weight: 700, alpha: 1 });
+          h += text(ops, day, left, h + 2, columnW, 'date', { key: headerKey, size: 18 * scale, sizeGroup: 'title', weight: 700, alpha: 1 });
         }
         add(ops, h, block.lines); continue;
       }
@@ -692,7 +695,7 @@
       const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = Math.round(logicalH * 2);
       const ctx = canvas.getContext('2d'); ctx.scale(2, 2); ctx.textBaseline = 'top';
       if (pages.length > 1) page.ops.push({ type: 'text', text: (index + 1) + ' / ' + pages.length, x: W - pad, y: logicalH - pad, role: 'foot',
-        spec: { key: cfg.font, size: 12 * scale, weight: 400, color: cfg.color, alpha: 1, align: 'right' } });
+        spec: { key: cfg.font, size: 12 * scale * (cfg.sizeAdjust && cfg.sizeAdjust.body || 1), weight: 400, color: cfg.color, alpha: 1, align: 'right' } });
       if (cfg.background === 'photo' && cfg.photoImage) {
         const image = cfg.photoImage, factor = Math.max(W / image.naturalWidth, logicalH / image.naturalHeight);
         const w = image.naturalWidth * factor, h = image.naturalHeight * factor;
@@ -989,6 +992,7 @@
 
     const cfg = {
       font: 'inter', titleFont: 'inter', recordFont: 'inter', accent: '#ff5b24', color: '#ffffff', size: 'portrait', fontSize: 40,
+      sizeAdjust: { title: 1, body: 1, record: 1 },
       background: 'transparent', textBox: 'none', boxScope: 'all', boxOpacity: .88, photoImage: null, photoShade: .25,
       date: true, sections: true, records: true, details: false,
       notes: false, prescribed: true, intent: false, foot: ''
@@ -1014,7 +1018,7 @@
 
     const head = node('div', null, panel);
     head.className = 'ws-head';
-    const title = node('h2', '운동 기록 공유', head);
+    const title = node('h2', '공유', head);
     title.id = 'jn-share-title';
     panel.setAttribute('aria-labelledby', title.id);
     const close = node('button', '닫기', head);
@@ -1037,12 +1041,11 @@
       if (active && active.isConnected) active.focus();
     }
     close.onclick = end;
-    root.onclick = e => { if (e.target === root) end(); };
 
     function keys(e) {
       if (e.key === 'Escape') {
         e.preventDefault();
-        if (fontSheet) fontSheet.close(); else end();
+        if (fontSheet) fontSheet.close();
         return;
       }
       if (e.key === 'Tab') {
@@ -1087,6 +1090,7 @@
         style = i;
         cfg.font = theme.font; cfg.titleFont = theme.titleFont; cfg.recordFont = theme.recordFont;
         fontSelect.value = cfg.font; titleSelect.value = cfg.titleFont; recordSelect.value = cfg.recordFont;
+        syncSize();
         designButtons.forEach((x, j) =>
           x.b.setAttribute('aria-pressed', String(i === j))
         );
@@ -1254,7 +1258,7 @@
 
     const sizeBox = node('div', null, controls);
     sizeBox.className = 'ws-font-size';
-    node('label', '기록 글자 크기', sizeBox);
+    node('label', '전체 크기', sizeBox);
     const presets = node('div', null, sizeBox);
     presets.className = 'ws-font-size-row';
     const presetButtons = [['작게', 32], ['중간', 40], ['크게', 48]].map(([label, n]) => {
@@ -1272,6 +1276,38 @@
     const slider = node('input', null, sizeBox);
     slider.type = 'range'; slider.min = '24'; slider.max = '72'; slider.step = '1';
     slider.setAttribute('aria-label', '기록 글자 크기');
+    const advancedToggle = node('button', '세부 조정', sizeBox);
+    advancedToggle.type = 'button'; advancedToggle.setAttribute('aria-expanded', 'false');
+    const advanced = node('div', null, sizeBox);
+    advanced.id = 'jn-share-size-details'; advanced.hidden = true;
+    advancedToggle.setAttribute('aria-controls', advanced.id);
+    advancedToggle.onclick = () => {
+      advanced.hidden = !advanced.hidden;
+      advancedToggle.setAttribute('aria-expanded', String(!advanced.hidden));
+    };
+    const sizeControls = [];
+    function baseSize(group) {
+      return styles[style][group === 'title' ? 'section' : group === 'record' ? 'record' : 'body'] * 2 * cfg.fontSize / 40;
+    }
+    [['title', '제목', 24, 320], ['body', '본문', 12, 120], ['record', '기록', 16, 240]].forEach(([group, label, min, max]) => {
+      const box = node('div', null, advanced);
+      const caption = node('label', label + ' 크기', box);
+      const row = node('div', null, box); row.className = 'ws-font-size-row';
+      const less = node('button', '−', row); less.type = 'button'; less.setAttribute('aria-label', label + ' 크기 1px 줄이기');
+      const value = node('output', '', row);
+      const more = node('button', '+', row); more.type = 'button'; more.setAttribute('aria-label', label + ' 크기 1px 늘리기');
+      const range = node('input', null, box); range.type = 'range'; range.min = min; range.max = max; range.step = '1';
+      range.id = 'jn-share-size-' + group; range.setAttribute('aria-label', label + ' 크기'); caption.htmlFor = range.id;
+      const current = () => Math.round(baseSize(group) * cfg.sizeAdjust[group]);
+      const change = n => { cfg.sizeAdjust[group] = Math.max(min, Math.min(max, n)) / baseSize(group); syncSize(); update(); };
+      less.onclick = () => change(current() - 1); more.onclick = () => change(current() + 1);
+      range.oninput = () => change(Number(range.value));
+      sizeControls.push(() => {
+        const n = current(); range.value = n; value.textContent = n + ' px'; less.disabled = n <= min; more.disabled = n >= max;
+      });
+    });
+    const resetSizes = node('button', '크기 초기화', advanced); resetSizes.type = 'button';
+    resetSizes.onclick = () => { cfg.sizeAdjust = { title: 1, body: 1, record: 1 }; syncSize(); update(); };
     minus.onclick = () => changeSize(cfg.fontSize - 1);
     plus.onclick = () => changeSize(cfg.fontSize + 1);
     slider.oninput = () => changeSize(Number(slider.value));
@@ -1279,6 +1315,7 @@
       slider.value = String(cfg.fontSize); output.textContent = cfg.fontSize + ' px';
       minus.disabled = cfg.fontSize <= 24; plus.disabled = cfg.fontSize >= 72;
       presetButtons.forEach(({b,n}) => b.setAttribute('aria-pressed', String(n === cfg.fontSize)));
+      sizeControls.forEach(sync => sync());
     }
     function changeSize(n) { cfg.fontSize = Math.max(24, Math.min(72, n)); syncSize(); update(); }
     syncSize();
