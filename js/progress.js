@@ -303,28 +303,4 @@ async function renderProgress(){
   });
   // 리프팅 추세는 숨김 (PR 갱신과 프로필 RM 기록으로 대신)
 
-  // ---- same prescription ----
-  const same = [];
-  const byItem = {};
-  recs.forEach(r => { if(!r.skipped && !isRound(r) && ['distance', 'reps', 'calories', 'weight'].includes(r.type)) (byItem[r.item_name] = byItem[r.item_name] || []).push(r); });
-  Object.entries(byItem).forEach(([n, list])=>{
-    if(list.length < 2) return;
-    const a = list[list.length - 2], b = list[list.length - 1];
-    const ia = itemOf(a.date, n), ib = itemOf(b.date, n);
-    if(!ia || !ib || String(ia.prescribed).trim() !== String(ib.prescribed).trim()) return;
-    if(pd(a).igug || pd(b).igug) return;
-    const num = r => r.type === 'distance' ? (() => { const m = String(r.value).match(/^([\d.]+)\s*(cm|m|ft)$/); return m ? +m[1] * (m[2] === 'm' ? 100 : m[2] === 'ft' ? 30.48 : 1) : NaN; })() : parseFloat(r.value);
-    const da = num(a), db = num(b);
-    if(isNaN(da) || isNaN(db)) return;
-    const show = r => r.type === 'weight' ? fmtWeightRec(r, unit) : escapeHtml(r.value);
-    const diff = db - da;
-    same.push('<div style="display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-top:0.5px solid var(--border); font-size:14px;"><span style="min-width:0;">' + escapeHtml(n) + '</span><span style="flex-shrink:0;"><span class="muted">' + show(a) + ' →</span> <strong style="font-weight:600;">' + show(b) + '</strong> <span style="font-size:12px; color:' + (diff > 0 ? 'var(--text-success)' : diff < 0 ? 'var(--text-danger)' : 'var(--text-muted)') + ';">' + (diff > 0 ? '▲' : diff < 0 ? '▼' : '—') + '</span></span></div>');
-  });
-  if(same.length){
-    const sc = document.createElement('div');
-    sc.className = 'card';
-    sc.style.margin = '0 0 12px';
-    sc.innerHTML = progHead('SAME WORKOUT', '같은 처방 비교', '처방이 완전히 같았던 지난번과 이번을 비교해요.') + same.join('');
-    el.appendChild(sc);
-  }
 }

@@ -220,6 +220,43 @@
       ? raw + ' ' + suffix : raw;
   }
 
+  // Personal Training: rebuild the format line + movements from the saved entry so the share shows what was done.
+  function personalPrescription(p, unit) {
+    const f = (p && p.f) || {}, out = [];
+    const moves = Array.isArray(p.moves) ? p.moves : [];
+    const moveLine = m => [m.r, m.n].filter(v => v != null && v !== '').join(' ')
+      + (m.kg != null ? ' @ ' + weight(m.kg, unit) : '');
+    if (f.t === 'fortime') {
+      const rounds = parseInt(f.rounds);
+      out.push(rounds > 1 ? rounds + ' ROUNDS FOR TIME' : 'FOR TIME');
+      moves.forEach(m => out.push(moveLine(m)));
+    } else if (f.t === 'amrap') {
+      out.push('AMRAP' + (parseInt(f.dur) ? ' ' + parseInt(f.dur) + ' MIN' : ''));
+      moves.forEach(m => out.push(moveLine(m)));
+    } else if (f.t === 'emom') {
+      const every = parseInt(f.every) || 1, rounds = parseInt(f.rounds);
+      out.push((every === 1 ? 'EMOM' : 'E' + every + 'MOM') + (rounds ? ' ' + every * rounds + ' MIN' : ''));
+      moves.forEach(m => out.push(moveLine(m)));
+    } else if (f.t === 'accessory' || f.t === 'lifting') {
+      const sets = Array.isArray(p.sets) ? p.sets : [];
+      const key = s => (s.kg != null ? s.kg : '') + '|' + (s.r || '');
+      if (sets.length > 1 && sets.every(s => key(s) === key(sets[0]))) {
+        const s0 = sets[0];
+        out.push(sets.length + ' × ' + (s0.r || '?') + (s0.kg != null ? ' @ ' + weight(s0.kg, unit) : ''));
+      } else sets.forEach((s, i) => out.push('SET ' + (i + 1) + '  '
+        + (s.kg != null ? weight(s.kg, unit) + (s.r ? ' × ' + s.r : '') : (s.r || '') + ' REPS')));
+    } else if (f.t === 'skill') {
+      String(p.notes || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).forEach(l => out.push(l));
+    }
+    return out.join('\n');
+  }
+  function personalHasName(p, name) {
+    const f = (p && p.f) || {};
+    if (f.t === 'accessory' || f.t === 'lifting' || f.t === 'skill') return true;
+    const auto = (Array.isArray(p.moves) ? p.moves : []).map(m => m.n).join(' + ');
+    return !!name && name !== auto && !/^(?:For Time|AMRAP|E\d*MOM)$/i.test(name);
+  }
+
   function buildEntries(records, items, unit) {
     const out = [], map = new Map();
     const program = (Array.isArray(items) ? items : [])
@@ -236,18 +273,22 @@
       const section = sec(r.section || (item && item.section));
       const key = section + '\n' + name;
       let entry = map.get(key);
+      const p = personal(r), detail = [];
+      const isPersonal = !item && /^personal$/i.test(section) && p && p.f;
       if (!entry) {
         entry = {
           key, section, name,
-          prescribed: item ? String(item.prescribed || '') : '',
+          prescribed: item ? String(item.prescribed || '')
+            : isPersonal ? personalPrescription(p, unit) : '',
+          personalName: isPersonal && personalHasName(p, name) ? name : '',
+          rawLines: isPersonal && p.f.t === 'skill',
           rows: []
         };
         map.set(key, entry);
         out.push(entry);
       }
 
-      const p = personal(r), detail = [];
-      if (p) {
+      if (p && !isPersonal) {
         if (p.spec) detail.push(String(p.spec));
         if (Array.isArray(p.sets)) p.sets.forEach((s, i) => {
           if (s.kg != null) {
@@ -269,13 +310,14 @@
 
       const suffix = item && r.item_name !== item.name
         ? String(r.item_name).slice(item.name.length + 3) : '';
-      const note = p ? String(p.notes || '')
+      const note = isPersonal && p.f.t === 'skill' ? '' : p ? String(p.notes || '')
         : String(r.scale_detail || '').startsWith('§')
           ? '' : String(r.scale_detail || '');
 
       entry.rows.push({
         label: suffix,
-        value: value(r, unit),
+        value: isPersonal && r.type === 'note' ? ''
+          : isPersonal && r.type === 'amrap' ? value(r, unit).replace(/\brounds?\b/i, 'ROUNDS') : value(r, unit),
         detail,
         note
       });
@@ -408,7 +450,7 @@
       const key = entry.section + '\n' + (item ? item.subsection || '' : '');
       if (!groups.has(key)) groups.set(key, []);
       const lines = (cfg.prescribed || !entry.rows.length) && entry.prescribed
-        ? visiblePrescriptionLines(entry.prescribed, cfg.intent).filter(line => !/^\s*(?:WORKOUT|원본 처방)\s*:?\s*$/i.test(line)) : [];
+        ? (entry.rawLines ? prescriptionLines(entry.prescribed) : visiblePrescriptionLines(entry.prescribed, cfg.intent)).filter(line => !/^\s*(?:WORKOUT|원본 처방)\s*:?\s*$/i.test(line)) : [];
       const internalRest = lines.some(line => /^(?:\d+\s*(?:sets?|rounds?)\b|EMOM\b|E\d+MOM\b|every\b)/i.test(line));
       const rests = lines.map((line, index) => ({ index, seconds: restDuration(line) }))
         .filter(rest => rest.seconds != null);
@@ -437,7 +479,8 @@
       group.forEach(part => {
         const { entry } = part;
         const lines = part.lines.filter((_, i) => !(commonFormat && !part.total && i === 0) && !(sharedRest != null && part.rests.some(rest => rest.index === i)))
-          .map(text => ({ text: shareEnglish(text), role: /^(?:each for time|for time|\d+\s*(?:sets?|rounds?)|EMOM|AMRAP|time cap)\b/i.test(text) ? 'format' : 'body' }));
+          .map(text => ({ text: entry.rawLines ? text : shareEnglish(text), role: /^(?:each for time|for time|\d+\s*(?:sets?|rounds?)|E\d*MOM|AMRAP|time cap)\b/i.test(text) ? 'format' : 'body' }));
+        if (entry.personalName && lines.length) lines.unshift({ text: shareEnglish(entry.personalName), role: 'label' });
         if (part.total) {
           lines.length = 0;
           if (cfg.records && entry.rows.length) lines.push({ text: 'TOTAL', role: 'label' });
