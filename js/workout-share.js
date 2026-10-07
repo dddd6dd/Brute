@@ -29,20 +29,165 @@
   if (window.JogymWorkoutShare) return;
 
   const fonts = {
-    sans: 'Pretendard, -apple-system, BlinkMacSystemFont, sans-serif',
-    serif: 'Georgia, "Noto Serif KR", Batang, serif',
-    mono: '"SFMono-Regular", Consolas, "Malgun Gothic", monospace'
-  };
+  "sans": "Pretendard, -apple-system, BlinkMacSystemFont, sans-serif",
+  "serif": "Georgia, Pretendard, serif",
+  "inter": "\"JN Inter\", Pretendard, sans-serif",
+  "montserrat": "\"JN Montserrat\", Pretendard, sans-serif",
+  "bebasneue": "\"JN Bebas Neue\", Pretendard, sans-serif",
+  "anton": "\"JN Anton\", Pretendard, sans-serif",
+  "oswald": "\"JN Oswald\", Pretendard, sans-serif",
+  "barlowcondensed": "\"JN Barlow Condensed\", Pretendard, sans-serif",
+  "spacegrotesk": "\"JN Space Grotesk\", Pretendard, sans-serif",
+  "mono": "\"JN JetBrains Mono\", Pretendard, sans-serif",
+  "ibmplexmono": "\"JN IBM Plex Mono\", Pretendard, sans-serif",
+  "dmserifdisplay": "\"JN DM Serif Display\", Pretendard, sans-serif",
+  "playfairdisplay": "\"JN Playfair Display\", Pretendard, sans-serif",
+  "archivoblack": "\"JN Archivo Black\", Pretendard, sans-serif",
+  "robotoslab": "\"JN Roboto Slab\", Pretendard, sans-serif",
+  "silkscreen": "\"JN Silkscreen\", Pretendard, sans-serif"
+};
+  const fontLabels = {
+  "sans": "Pretendard",
+  "serif": "Georgia",
+  "inter": "Inter",
+  "montserrat": "Montserrat",
+  "bebasneue": "Bebas Neue",
+  "anton": "Anton",
+  "oswald": "Oswald",
+  "barlowcondensed": "Barlow Condensed",
+  "spacegrotesk": "Space Grotesk",
+  "mono": "JetBrains Mono",
+  "ibmplexmono": "IBM Plex Mono",
+  "dmserifdisplay": "DM Serif Display",
+  "playfairdisplay": "Playfair Display",
+  "archivoblack": "Archivo Black",
+  "robotoslab": "Roboto Slab",
+  "silkscreen": "Silkscreen"
+};
   const styles = [
-    { name: 'Minimal', font: 'sans', body: 20, record: 20, section: 22, gap: 20 },
-    { name: 'Training Log', font: 'sans', body: 20, record: 20, section: 18, gap: 22, rules: true },
-    { name: 'Record Focus', font: 'sans', body: 20, record: 34, section: 20, gap: 22, boldRecord: true },
-    { name: 'Editorial', font: 'serif', body: 20, record: 26, section: 24, gap: 24, center: true },
-    { name: 'Compact', font: 'sans', body: 18, record: 20, section: 18, gap: 12, leading: 1.25 },
-    { name: 'Mono', font: 'mono', body: 20, record: 20, section: 20, gap: 20, rules: true },
-    { name: 'Air', font: 'sans', body: 22, record: 22, section: 22, gap: 30, light: true },
-    { name: 'Outline', font: 'sans', body: 20, record: 30, section: 20, gap: 22, outline: true }
-  ];
+  {
+    "name": "Minimal",
+    "layout": "flow",
+    "font": "inter",
+    "titleFont": "inter",
+    "recordFont": "inter",
+    "body": 20,
+    "record": 20,
+    "section": 22,
+    "gap": 20
+  },
+  {
+    "name": "Training Log",
+    "layout": "table",
+    "font": "inter",
+    "titleFont": "spacegrotesk",
+    "recordFont": "mono",
+    "body": 20,
+    "record": 20,
+    "section": 22,
+    "gap": 8
+  },
+  {
+    "name": "Record Focus",
+    "layout": "focus",
+    "font": "inter",
+    "titleFont": "montserrat",
+    "recordFont": "barlowcondensed",
+    "body": 20,
+    "record": 42,
+    "section": 24,
+    "gap": 28,
+    "boldRecord": true
+  },
+  {
+    "name": "Editorial",
+    "layout": "flow",
+    "font": "playfairdisplay",
+    "titleFont": "dmserifdisplay",
+    "recordFont": "playfairdisplay",
+    "body": 20,
+    "record": 26,
+    "section": 30,
+    "gap": 24,
+    "center": true
+  },
+  {
+    "name": "Poster",
+    "layout": "poster",
+    "font": "mono",
+    "titleFont": "archivoblack",
+    "recordFont": "mono",
+    "body": 20,
+    "record": 22,
+    "section": 76,
+    "gap": 16,
+    "upperBody": true,
+    "accent": true,
+    "boldRecord": true
+  },
+  {
+    "name": "Timeline",
+    "layout": "timeline",
+    "font": "inter",
+    "titleFont": "oswald",
+    "recordFont": "spacegrotesk",
+    "body": 20,
+    "record": 22,
+    "section": 36,
+    "gap": 16,
+    "accent": true
+  },
+  {
+    "name": "Scorecards",
+    "layout": "cards",
+    "font": "inter",
+    "titleFont": "montserrat",
+    "recordFont": "barlowcondensed",
+    "body": 18,
+    "record": 34,
+    "section": 28,
+    "gap": 18,
+    "boldRecord": true
+  },
+  {
+    "name": "Ticket",
+    "layout": "ticket",
+    "font": "inter",
+    "titleFont": "bebasneue",
+    "recordFont": "oswald",
+    "body": 18,
+    "record": 28,
+    "section": 44,
+    "gap": 16,
+    "boldRecord": true,
+    "accent": true
+  },
+  {
+    "name": "Receipt",
+    "layout": "receipt",
+    "font": "ibmplexmono",
+    "titleFont": "ibmplexmono",
+    "recordFont": "ibmplexmono",
+    "body": 18,
+    "record": 20,
+    "section": 24,
+    "gap": 18,
+    "upperBody": true
+  },
+  {
+    "name": "Dashboard",
+    "layout": "dashboard",
+    "font": "inter",
+    "titleFont": "spacegrotesk",
+    "recordFont": "barlowcondensed",
+    "body": 20,
+    "record": 32,
+    "section": 30,
+    "gap": 20,
+    "boldRecord": true,
+    "accent": true
+  }
+];
   const sizes = {
     portrait: [1080, 1920],
     landscape: [1920, 1080],
@@ -178,15 +323,18 @@
     const lines = [];
     String(text).split(/\r?\n/).forEach(part => {
       let line = '';
-      Array.from(part).forEach(ch => {
-        if (line && ctx.measureText(line + ch).width > max) {
-          lines.push(line.trimEnd());
-          line = ch;
-        } else {
-          line += ch;
-        }
+      part.trim().split(/\s+/).forEach(word => {
+        const candidate = line ? line + ' ' + word : word;
+        if (ctx.measureText(candidate).width <= max) { line = candidate; return; }
+        if (line) { lines.push(line); line = ''; }
+        // Keep movement names readable; split only a token wider than the column.
+        Array.from(word).forEach(ch => {
+          if (line && ctx.measureText(line + ch).width > max) {
+            lines.push(line); line = ch;
+          } else line += ch;
+        });
       });
-      lines.push(line.trimEnd());
+      lines.push(line);
     });
     return lines;
   }
@@ -292,92 +440,399 @@
   }
 
   function renderPages(blocks, cfg, style, firstOnly) {
-    const theme = styles[style];
+    const theme = styles[style], mode = theme.layout;
     const [width, height] = sizes[cfg.size];
     const W = width / 2, H = height / 2, pad = 34, usable = W - pad * 2;
-    const measure = document.createElement('canvas').getContext('2d');
     const scale = cfg.fontSize / 40;
-    const font = fonts[cfg.font];
-    const layout = blocks.map(block => {
-      const commands = [];
-      block.lines.forEach(line => {
-        const role = line.role;
-        const record = role === 'record';
-        const size = (role === 'section' ? theme.section : record ? theme.record
-          : /^(?:date|format|detail|note|rest|foot)$/.test(role) ? 14 : theme.body) * scale;
-        const weight = role === 'section' || role === 'format' || (record && theme.boldRecord) ? 600 : theme.light && role === 'body' ? 300 : 400;
-        measure.font = weight + ' ' + size + 'px ' + font;
-        const valueSize = theme.record * scale;
-        let reserve = 0;
-        if (line.value && !theme.center) {
-          measure.font = (theme.boldRecord ? '600 ' : '400 ') + valueSize + 'px ' + font;
-          reserve = measure.measureText(line.value).width + 22;
+    const measure = document.createElement('canvas').getContext('2d');
+    measure.textBaseline = 'top';
+    const chunks = [];
+    let sequence = 0;
+    const accent = cfg.accent === 'same' ? cfg.color : cfg.accent;
+    const headerKey = cfg.titleFont || cfg.font, recordKey = cfg.recordFont || cfg.font;
+    function styleFor(role) {
+      return { key: role === 'section' ? headerKey : role === 'record' ? recordKey : cfg.font,
+        size: (role === 'section' ? theme.section : role === 'record' ? theme.record : /^(date|format|detail|note|rest|foot)$/.test(role) ? 14 : theme.body) * scale,
+        weight: role === 'section' || role === 'format' || (role === 'record' && theme.boldRecord) ? 700 : 400,
+        color: role === 'format' && theme.accent ? accent : cfg.color,
+        alpha: /^(date|detail|note|rest|foot)$/.test(role) ? .78 : 1 };
+    }
+    function text(ops, string, x, y, maxWidth, role, extra) {
+      const spec = Object.assign(styleFor(role), extra);
+      measure.font = spec.weight + ' ' + spec.size + 'px ' + fonts[spec.key];
+      if (spec.fit && measure.measureText(string).width > maxWidth) {
+        spec.size *= maxWidth / measure.measureText(string).width;
+        measure.font = spec.weight + ' ' + spec.size + 'px ' + fonts[spec.key];
+      }
+      const lines = wrap(measure, string, maxWidth);
+      const lineH = spec.size * 1.42 + 2 * scale;
+      lines.forEach((value, i) => ops.push({ type: 'text', text: value, x: spec.align === 'right' ? x + maxWidth : spec.align === 'center' ? x + maxWidth / 2 : x,
+        y: y + i * lineH, role, spec: Object.assign({}, spec), h: lineH }));
+      return lines.length * lineH;
+    }
+    function shape(ops, type, props) { ops.push(Object.assign({ type, color: cfg.color, alpha: .38 }, props)); }
+    function flow(lines, x, maxWidth, ops, startY, center) {
+      let y = startY;
+      lines.forEach(line => {
+        const string = theme.upperBody && line.role === 'body' ? line.text.toUpperCase() : line.text;
+        if (line.value && !center) {
+          const scoreStyle = styleFor('record');
+          measure.font = scoreStyle.weight + ' ' + scoreStyle.size + 'px ' + fonts[scoreStyle.key];
+          const reserved = measure.measureText(line.value).width + 20 * scale;
+          if (reserved < maxWidth * .52) {
+            const leftH = text(ops, string, x, y, maxWidth - reserved, line.role);
+            const rightH = text(ops, line.value, x + maxWidth - reserved + 12 * scale, y, reserved - 12 * scale, 'record', { align: 'right' });
+            y += Math.max(leftH, rightH);
+            return;
+          }
         }
-        const paired = line.value && !theme.center && reserve < usable * .55;
-        measure.font = weight + ' ' + size + 'px ' + font;
-        wrap(measure, line.text, paired ? usable - reserve : usable).forEach((text, i) => {
-          const pair = paired && i === 0;
-          commands.push({ text, size, weight, role, align: theme.center ? 'center' : 'left',
-            value: pair ? line.value : '', valueSize,
-            h: Math.max(size, pair ? valueSize : 0) * (theme.leading || 1.4) + (role === 'rest' ? 8 : 2) });
+        y += text(ops, string, x, y, maxWidth, line.role, { align: center ? 'center' : 'left' });
+        if (line.value) y += text(ops, line.value, x, y + 4, maxWidth, 'record', { align: center ? 'center' : 'right' }) + 4;
+      });
+      return y;
+    }
+    function split(lines) {
+      const source = [], scores = [];
+      lines.forEach(line => {
+        if (line.role === 'record') scores.push(line.text);
+        else { source.push({ text: line.text, role: line.role }); if (line.value) scores.push(line.value); }
+      });
+      return { source, scores };
+    }
+    function sourceFlow(lines, x, w, ops, y, extra) {
+      lines.forEach(line => { y += text(ops, theme.upperBody && line.role === 'body' ? line.text.toUpperCase() : line.text, x, y, w, line.role, extra); });
+      return y;
+    }
+    function isSession(block) { return block.lines.some(line => /^(body|label|record|detail|note)$/.test(line.role)); }
+    function isTotal(block) { return block.lines[0] && block.lines[0].text === 'TOTAL' && block.lines[0].role === 'label'; }
+    function add(ops, h, original) { chunks.push({ ops, h: h + theme.gap * scale, original }); }
+    function session(block, index, x, w, variant) {
+      const ops = [], { source, scores } = split(block.lines);
+      const inset = 16 * scale, scoreW = w * .31;
+      let h;
+      if (variant === 'table') {
+        const leftW = w - scoreW - 24 * scale;
+        const bodyH = sourceFlow(source, x + 8, leftW - 8, ops, 10 * scale);
+        let scoreH = 10 * scale;
+        scores.forEach(score => { scoreH += text(ops, score, x + w - scoreW + 8, scoreH, scoreW - 16, 'record', { align: 'right', fit: true }); });
+        h = Math.max(bodyH, scoreH) + 14 * scale;
+        shape(ops, 'line', { x1: x, y1: h, x2: x + w, y2: h });
+        shape(ops, 'line', { x1: x + w - scoreW, y1: 0, x2: x + w - scoreW, y2: h, alpha: .2 });
+      } else if (variant === 'focus') {
+        const leftW = w * .34;
+        let scoreH = 0;
+        scores.forEach(score => { scoreH += text(ops, score, x, scoreH, leftW - 12, 'record', { fit: true }); });
+        const bodyH = sourceFlow(source, scores.length ? x + leftW + 12 : x, scores.length ? w - leftW - 12 : w, ops, 0);
+        h = Math.max(scoreH, bodyH) + 10;
+      } else if (variant === 'timeline') {
+        const gutter = 44 * scale;
+        h = flow(block.lines, x + gutter, Math.max(40, w - gutter), ops, 0, false) + 12 * scale;
+        shape(ops, 'line', { x1: x + 9, y1: 9, x2: x + 9, y2: h + theme.gap * scale, color: accent, alpha: .55 });
+        shape(ops, 'circle', { x: x + 9, y: 9, radius: 4, color: accent, alpha: 1 });
+        text(ops, String(index).padStart(2, '0'), x + 18, 0, Math.max(24, gutter - 21), 'date', { size: 10 * scale, fit: true, color: accent, alpha: 1 });
+      } else if (variant === 'ticket') {
+        const stub = w * .3;
+        let scoreH = 18 * scale;
+        text(ops, String(index).padStart(2, '0'), x + w - stub + inset, scoreH, stub - inset * 2, 'date', { align: 'center', color: accent, alpha: 1 });
+        scoreH += 26 * scale;
+        scores.forEach(score => { scoreH += text(ops, score, x + w - stub + inset, scoreH, stub - inset * 2, 'record', { align: 'center', fit: true }); });
+        const bodyH = sourceFlow(source, x + inset, w - stub - inset * 2, ops, inset);
+        h = Math.max(bodyH, scoreH) + inset;
+        shape(ops, 'ticket', { x, y: 0, w, h, alpha: .65 });
+        shape(ops, 'line', { x1: x + w - stub, y1: 8, x2: x + w - stub, y2: h - 8, dash: [3, 4], alpha: .6 });
+      } else if (variant === 'cards') {
+        text(ops, String(index).padStart(2, '0'), x + inset, inset, w - inset * 2, 'date', { color: accent, alpha: 1 });
+        let scoreH = inset + 24 * scale;
+        scores.forEach(score => { scoreH += text(ops, score, x + inset, scoreH, w - inset * 2, 'record', { fit: true, size: 34 * scale }); });
+        const bodyStart = scoreH + (scores.length ? 12 : 0) * scale;
+        h = sourceFlow(source, x + inset, w - inset * 2, ops, bodyStart) + inset;
+        shape(ops, 'rect', { x, y: 0, w, h, radius: 14, alpha: .6 });
+        if (scores.length) shape(ops, 'line', { x1: x + inset, y1: scoreH + 4 * scale, x2: x + w - inset, y2: scoreH + 4 * scale, alpha: .3 });
+      } else {
+        h = flow(block.lines, x, w, ops, 0, theme.center);
+        if (variant === 'receipt') shape(ops, 'line', { x1: x, y1: h + 8, x2: x + w, y2: h + 8, dash: [2, 4], alpha: .65 });
+      }
+      return { ops, h, original: block.lines };
+    }
+    const columnW = mode === 'receipt' ? usable * .74 : usable;
+    const left = pad + (usable - columnW) / 2;
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i], first = block.lines[0];
+      if (first.role === 'date' && block.lines.length === 1) {
+        const ops = [];
+        let h = text(ops, first.text, left, 0, columnW, 'date', { key: mode === 'poster' ? 'silkscreen' : cfg.font, align: mode === 'receipt' || theme.center ? 'center' : 'left' });
+        if (mode === 'poster' && /^\d{4}-\d{2}-\d{2}$/.test(first.text)) {
+          const d = new Date(first.text + 'T00:00:00Z');
+          const day = ['SUN','MON','TUE','WED','THU','FRI','SAT'][d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getUTCMonth()];
+          h += text(ops, day, left, h + 2, columnW, 'date', { key: headerKey, size: 18 * scale, weight: 700, alpha: 1 });
+        }
+        add(ops, h, block.lines); continue;
+      }
+      if (first.role === 'section' && block.lines.length === 1) {
+        const ops = [];
+        const next = blocks[i + 1];
+        const format = next && next.lines.length === 1 && next.lines[0].role === 'format' ? next.lines[0] : null;
+        let h = 0;
+        if (mode === 'poster' && format) { h += text(ops, format.text, left, h, columnW, 'format', { key: headerKey, color: accent, alpha: 1 }); i++; }
+        h += text(ops, first.text, left, h, columnW, 'section', { fit: true, align: theme.center || mode === 'receipt' ? 'center' : 'left' });
+        if (mode === 'table') {
+          h += 12 * scale;
+          text(ops, 'MOVEMENT', left + 8, h, columnW * .62, 'format', { size: 10 * scale, alpha: .7 });
+          if (cfg.records) text(ops, 'RESULT', left + columnW * .7, h, columnW * .3 - 8, 'format', { size: 10 * scale, align: 'right', alpha: .7 });
+          h += 22 * scale;
+          shape(ops, 'line', { x1: left, y1: h, x2: left + columnW, y2: h, alpha: .6 });
+        }
+        add(ops, h, format && mode === 'poster' ? [format, first] : block.lines); continue;
+      }
+      if (mode === 'cards' && isSession(block) && !isTotal(block)) {
+        const batch = [block];
+        if (blocks[i + 1] && isSession(blocks[i + 1]) && !isTotal(blocks[i + 1])) batch.push(blocks[++i]);
+        const gap = 16, w = (usable - gap) / 2, parts = batch.map((b, j) => session(b, ++sequence, pad + j * (w + gap), w, 'cards'));
+        const h = Math.max(...parts.map(part => part.h));
+        parts.forEach(part => { const rect = part.ops.find(op => op.type === 'rect'); if (rect) rect.h = h; });
+        add(parts.flatMap(part => part.ops), h, batch.flatMap(b => b.lines)); continue;
+      }
+      if (mode === 'dashboard' && isSession(block) && !isTotal(block)) {
+        const batch = [block];
+        while (batch.length < 3 && blocks[i + 1] && isSession(blocks[i + 1]) && !isTotal(blocks[i + 1])) batch.push(blocks[++i]);
+        const ops = [], gap = 12, tileW = (usable - gap * (batch.length - 1)) / batch.length;
+        const parts = batch.map(b => ({ lines: b.lines, index: ++sequence, ...split(b.lines) }));
+        let tileH = 40 * scale;
+        parts.forEach((part, j) => {
+          const x = pad + j * (tileW + gap); text(ops, String(part.index).padStart(2, '0'), x + 12, 12, tileW - 24, 'date', { color: accent, alpha: 1 });
+          let y = 38 * scale;
+          part.scores.forEach(score => { y += text(ops, score, x + 12, y, tileW - 24, 'record', { fit: true, size: 32 * scale }); });
+          tileH = Math.max(tileH, y + 16);
         });
-        if (line.value && !paired) {
-          measure.font = (theme.boldRecord ? '600 ' : '400 ') + valueSize + 'px ' + font;
-          wrap(measure, line.value, usable).forEach(text => commands.push({ text,
-            size: valueSize, weight: theme.boldRecord ? 600 : 400, role: 'record',
-            align: theme.center ? 'center' : 'right', h: valueSize * 1.4 + 2 }));
-        }
-      });
-      const sectionOnly = block.lines.length === 1 && block.lines[0].role === 'section';
-      commands.push({ h: sectionOnly ? 8 : theme.gap, rule: theme.rules && !sectionOnly && block.lines[0].role !== 'date' });
-      return commands;
-    });
+        parts.forEach((part, j) => shape(ops, 'rect', { x: pad + j * (tileW + gap), y: 0, w: tileW, h: tileH, radius: 12, alpha: .6 }));
+        let y = tileH + 22 * scale;
+        parts.forEach(part => {
+          text(ops, String(part.index).padStart(2, '0'), pad, y, 30 * scale, 'date', { color: accent, alpha: 1 });
+          y = sourceFlow(part.source, pad + 40 * scale, usable - 40 * scale, ops, y) + 16 * scale;
+        });
+        add(ops, y, batch.flatMap(b => b.lines)); continue;
+      }
+      if (isSession(block)) {
+        const variant = isTotal(block) ? 'flow' : mode;
+        const chunk = session(block, ++sequence, left, columnW, variant);
+        add(chunk.ops, chunk.h, chunk.original);
+      } else {
+        const ops = [], h = flow(block.lines, left, columnW, ops, 0, theme.center || mode === 'receipt');
+        add(ops, h, block.lines);
+      }
+    }
 
-    const pages = [], limit = H - pad - 24;
-    let list = [], y = pad;
-    const flush = () => { if (list.some(command => command.text)) pages.push({ list, y }); list = []; y = pad; };
-    layout.forEach(commands => {
-      const blockHeight = commands.reduce((sum, command) => sum + command.h, 0);
-      if (y + blockHeight > limit && blockHeight <= limit - pad && list.some(command => command.text)) flush();
-      commands.forEach(command => {
-        if (y + command.h > limit && list.some(c => c.text)) flush();
-        list.push(Object.assign({ y }, command)); y += command.h;
+    const pages = [], contentLimit = H - pad - 30, capacity = contentLimit - pad;
+    let ops = [], y = pad;
+    function flush() { if (ops.some(op => op.type === 'text')) pages.push({ ops, y }); ops = []; y = pad; }
+    function place(chunk) {
+      if (y + chunk.h > contentLimit && ops.length) flush();
+      chunk.ops.forEach(op => {
+        const moved = Object.assign({}, op);
+        if (op.y != null) moved.y += y;
+        if (op.y1 != null) { moved.y1 += y; moved.y2 += y; }
+        ops.push(moved);
+      }); y += chunk.h;
+    }
+    chunks.forEach(chunk => {
+      if (chunk.h <= capacity) { place(chunk); return; }
+      // Very long content keeps every line, using plain continuation rows across pages.
+      if (ops.length) flush();
+      const compactOps = [];
+      flow(chunk.original, pad, usable, compactOps, 0, false);
+      // A record shares the first source row even when that source spans many pages.
+      compactOps.sort((a, b) => a.y - b.y);
+      const pieceHeight = piece => Math.max(...piece.map(op => op.y + op.h)) + 12;
+      let start = 0, piece = [];
+      compactOps.forEach(op => {
+        if (op.y + op.h - start > capacity && piece.length) { place({ ops: piece, h: pieceHeight(piece) }); flush(); piece = []; start = op.y; }
+        piece.push(Object.assign({}, op, { y: op.y - start }));
       });
+      if (piece.length) place({ ops: piece, h: pieceHeight(piece) });
     });
     flush();
-    const output = firstOnly ? pages.slice(0, 1) : pages;
-    return output.map((p, i) => {
-      const logicalH = cfg.size === 'crop' ? Math.min(H, Math.max(160, p.y + pad + 24)) : H;
-      const canvas = document.createElement('canvas');
-      canvas.width = width; canvas.height = Math.round(logicalH * 2);
-      const ctx = canvas.getContext('2d');
-      ctx.scale(2, 2); ctx.fillStyle = cfg.color; ctx.strokeStyle = cfg.color; ctx.textBaseline = 'top';
-      function paint(text, x, y, size, weight, align, outline) {
-        ctx.font = weight + ' ' + size + 'px ' + font; ctx.textAlign = align;
-        if (outline) { ctx.lineWidth = 1.1 * scale; ctx.strokeText(text, x, y); }
-        else ctx.fillText(text, x, y);
-      }
-      p.list.forEach(command => {
-        if (command.rule) {
-          ctx.globalAlpha = .22; ctx.lineWidth = .7; ctx.beginPath();
-          ctx.moveTo(pad, command.y + 8); ctx.lineTo(W - pad, command.y + 8); ctx.stroke(); ctx.globalAlpha = 1;
+    return (firstOnly ? pages.slice(0, 1) : pages).map((page, index) => {
+      const logicalH = cfg.size === 'crop' ? Math.min(H, Math.max(160, page.y + pad + 22)) : H;
+      const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = Math.round(logicalH * 2);
+      const ctx = canvas.getContext('2d'); ctx.scale(2, 2); ctx.textBaseline = 'top';
+      const recordSizes = [];
+      page.ops.forEach(op => {
+        ctx.save(); ctx.fillStyle = op.color || cfg.color; ctx.strokeStyle = op.color || cfg.color; ctx.globalAlpha = op.alpha == null ? 1 : op.alpha; ctx.lineWidth = .8;
+        if (op.type === 'text') {
+          ctx.fillStyle = op.spec.color; ctx.globalAlpha = op.spec.alpha; ctx.font = op.spec.weight + ' ' + op.spec.size + 'px ' + fonts[op.spec.key]; ctx.textAlign = op.spec.align || 'left';
+          ctx.fillText(op.text, op.x, op.y);
+          if (op.role === 'record') recordSizes.push(op.spec.size * 2);
+        } else if (op.type === 'line') {
+          if (op.dash) ctx.setLineDash(op.dash); ctx.beginPath(); ctx.moveTo(op.x1, op.y1); ctx.lineTo(op.x2, op.y2); ctx.stroke();
+        } else if (op.type === 'circle') {
+          ctx.beginPath(); ctx.arc(op.x, op.y, op.radius, 0, Math.PI * 2); ctx.stroke();
+        } else if (op.type === 'rect') {
+          ctx.beginPath(); ctx.roundRect(op.x, op.y, op.w, op.h, op.radius || 0); ctx.stroke();
+        } else if (op.type === 'ticket') {
+          const r = 8, mid = op.y + op.h / 2;
+          ctx.beginPath(); ctx.moveTo(op.x, op.y); ctx.lineTo(op.x + op.w, op.y); ctx.lineTo(op.x + op.w, mid - r);
+          ctx.lineTo(op.x + op.w - r, mid); ctx.lineTo(op.x + op.w, mid + r); ctx.lineTo(op.x + op.w, op.y + op.h);
+          ctx.lineTo(op.x, op.y + op.h); ctx.lineTo(op.x, mid + r); ctx.lineTo(op.x + r, mid); ctx.lineTo(op.x, mid - r); ctx.closePath(); ctx.stroke();
         }
-        if (!command.text) return;
-        const x = command.align === 'center' ? W / 2 : command.align === 'right' ? W - pad : pad;
-        ctx.globalAlpha = /^(?:date|detail|note|rest|foot)$/.test(command.role) ? .78 : 1;
-        paint(command.text, x, command.y, command.size, command.weight, command.align, theme.outline && command.role === 'record');
-        ctx.globalAlpha = 1;
-        if (command.value) paint(command.value, W - pad, command.y, command.valueSize,
-          theme.boldRecord ? 600 : 400, 'right', theme.outline);
+        ctx.restore();
       });
-      ctx.globalAlpha = 1;
-      if (pages.length > 1) paint((i + 1) + ' / ' + pages.length, W - pad, logicalH - pad, 12 * scale, 400, 'right', false);
+      if (mode === 'receipt') {
+        const x = left - 14, w = columnW + 28, bottom = Math.min(logicalH - 30, page.y + 8);
+        ctx.strokeStyle = cfg.color; ctx.globalAlpha = .35; ctx.lineWidth = .7; ctx.beginPath();
+        ctx.moveTo(x, 22); ctx.lineTo(x, bottom); for (let px = x; px < x + w; px += 10) { ctx.lineTo(px + 5, bottom - 6); ctx.lineTo(Math.min(px + 10, x + w), bottom); } ctx.lineTo(x + w, 22); ctx.stroke(); ctx.globalAlpha = 1;
+      }
+      if (pages.length > 1) {
+        ctx.fillStyle = cfg.color; ctx.font = (12 * scale) + 'px ' + fonts[cfg.font]; ctx.textAlign = 'right'; ctx.fillText((index + 1) + ' / ' + pages.length, W - pad, logicalH - pad);
+      }
+      if (recordSizes.length) { canvas.dataset.recordMin = String(Math.min(...recordSizes)); canvas.dataset.recordMax = String(Math.max(...recordSizes)); }
       return canvas;
     });
   }
 
 
   const css = `
+@font-face {
+  font-family: 'JN Inter';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url(./assets/share-fonts/inter-0.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JN Montserrat';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url(./assets/share-fonts/montserrat-0.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JN Bebas Neue';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./assets/share-fonts/bebasneue-0.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JN Anton';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./assets/share-fonts/anton-0.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JN Oswald';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(./assets/share-fonts/oswald-0.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JN Barlow Condensed';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./assets/share-fonts/barlowcondensed-0.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JN Barlow Condensed';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(./assets/share-fonts/barlowcondensed-1.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JN Space Grotesk';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(./assets/share-fonts/spacegrotesk-0.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JN JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(./assets/share-fonts/jetbrainsmono-0.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JN IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./assets/share-fonts/ibmplexmono-0.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JN IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(./assets/share-fonts/ibmplexmono-1.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JN DM Serif Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./assets/share-fonts/dmserifdisplay-0.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JN Playfair Display';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(./assets/share-fonts/playfairdisplay-0.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JN Archivo Black';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./assets/share-fonts/archivoblack-0.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JN Roboto Slab';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(./assets/share-fonts/robotoslab-0.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JN Silkscreen';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(./assets/share-fonts/silkscreen-0.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 #jn-workout-share{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:12px;background:rgba(0,0,0,.42);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);color:var(--text-primary,#171717);font-family:var(--font-sans,sans-serif)}
 #jn-workout-share *{box-sizing:border-box}
 #jn-workout-share .ws-panel{position:relative;display:flex;flex-direction:column;width:min(1000px,100%);height:min(900px,96dvh);min-height:0;overflow:hidden;border:1px solid var(--glass-edge,#ddd);border-radius:26px;background:var(--glass-panel,#fafaf8);backdrop-filter:var(--blur-panel);-webkit-backdrop-filter:var(--blur-panel);box-shadow:var(--glass-shadow-float,0 20px 80px #0004)}
@@ -440,7 +895,7 @@
     }
 
     const cfg = {
-      font: 'sans', color: '#ffffff', size: 'portrait', fontSize: 40,
+      font: 'inter', titleFont: 'inter', recordFont: 'inter', accent: '#ff5b24', color: '#ffffff', size: 'portrait', fontSize: 40,
       date: true, sections: true, records: true, details: false,
       notes: false, prescribed: true, foot: ''
     };
@@ -529,8 +984,8 @@
       node('span', theme.name, b);
       b.onclick = () => {
         style = i;
-        cfg.font = theme.font;
-        fontSelect.value = cfg.font;
+        cfg.font = theme.font; cfg.titleFont = theme.titleFont; cfg.recordFont = theme.recordFont;
+        fontSelect.value = cfg.font; titleSelect.value = cfg.titleFont; recordSelect.value = cfg.recordFont;
         designButtons.forEach((x, j) =>
           x.b.setAttribute('aria-pressed', String(i === j))
         );
@@ -556,17 +1011,17 @@
       s.onchange = () => { cfg[key] = s.value; update(); };
       return s;
     }
-    const fontSelect = select('폰트', 'font', [
-      ['sans', 'Sans · 깔끔하게'],
-      ['serif', 'Serif · 클래식하게'],
-      ['mono', 'Mono · 기록 노트']
-    ]);
+    const fontList = Object.entries(fontLabels);
+    const titleSelect = select('제목 폰트', 'titleFont', fontList);
+    const fontSelect = select('본문 폰트', 'font', fontList);
+    const recordSelect = select('기록 폰트', 'recordFont', fontList);
     select('글자색', 'color', [
       ['#ffffff', '화이트'],
       ['#151515', '블랙'],
       ['#ece3d1', '아이보리'],
       ['#a6f0ce', '민트']
     ]);
+    select('강조색', 'accent', [['#ff5b24', '오렌지'], ['#b8f343', '라임'], ['#83c9ff', '블루'], ['same', '글자색과 같게']]);
     select('PNG 크기', 'size', [
       ['portrait', '세로'],
       ['landscape', '가로'],
@@ -736,9 +1191,12 @@
       const w = Math.min(expanded ? 430 : 320, maxW, maxH * canvas.width / canvas.height);
       preview.style.width = w + 'px';
       const scale = w / canvas.width;
-      const recordPx = cfg.fontSize * styles[style].record / 20;
+      const recordMin = Number(canvas.dataset.recordMin || cfg.fontSize * styles[style].record / 20);
+      const recordMax = Number(canvas.dataset.recordMax || recordMin);
+      const px = n => String(Math.round(n * 10) / 10);
+      const recordPx = px(recordMin) + (Math.abs(recordMax - recordMin) > .1 ? '–' + px(recordMax) : '');
       scaleHint.textContent = canvas.width + ' × ' + canvas.height + ' px · ' + Math.round(scale * 100) + '% 미리보기'
-        + '\n기록 글자: PNG ' + Math.round(recordPx * 10) / 10 + ' px → 화면 ' + Math.round(recordPx * scale * 10) / 10 + ' px';
+        + '\n기록 글자: PNG ' + recordPx + ' px → 화면 ' + px(recordMin * scale) + (Math.abs(recordMax - recordMin) > .1 ? '–' + px(recordMax * scale) : '') + ' px';
     }
     const resizeObserver = new ResizeObserver(fitPreview);
     resizeObserver.observe(dock);
@@ -765,9 +1223,9 @@
       save.disabled = copy.disabled = true;
       try {
         if (document.fonts) {
-          await document.fonts.load(
-            '20px ' + fonts[cfg.font], '오늘 운동'
-          ).catch(() => {});
+          const needed = new Set([cfg.font, cfg.titleFont, cfg.recordFont, 'silkscreen']);
+          styles.forEach(theme => [theme.font, theme.titleFont, theme.recordFont].forEach(key => needed.add(key)));
+          await Promise.all([...needed].flatMap(key => [400, 700].map(weight => document.fonts.load(weight + ' 20px ' + fonts[key], 'METCON 0123456789').catch(() => []))));
         }
         if (closed || token !== revision) return;
         const list = chosen();
@@ -777,7 +1235,7 @@
         designButtons.forEach(({ thumb }, i) => {
           thumb.replaceChildren();
           const p = list.length
-            ? renderPages(blocks, Object.assign({}, cfg, { size: 'portrait', font: i === style ? cfg.font : styles[i].font }), i, true)[0] : null;
+            ? renderPages(blocks, Object.assign({}, cfg, { size: 'portrait', font: i === style ? cfg.font : styles[i].font, titleFont: i === style ? cfg.titleFont : styles[i].titleFont, recordFont: i === style ? cfg.recordFont : styles[i].recordFont }), i, true)[0] : null;
           if (p) thumb.appendChild(p);
           thumb.style.background =
             cfg.color === '#151515' ? '#eee' : '#555';
