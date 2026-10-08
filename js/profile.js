@@ -5,7 +5,7 @@ async function renderProfileList(){
   const el = document.getElementById('profile-list');
   el.innerHTML = '<p class="muted">불러오고 있어요...</p>';
   const { data, error } = await sb.from('records').select('name');
-  if(error){ el.innerHTML = `<p class="status err">${error.message}</p>`; return; }
+  if(error){ el.innerHTML = `<p class="status err">${escapeHtml(error.message)}</p>`; return; }
   const privateNames = await getPrivateProfileNames();
   const names = [...new Set([...(data||[]).map(r=>r.name), ...privateNames])].sort();
   if(names.length === 0){ el.innerHTML = '<p class="muted">아직 기록이 없어요.</p>'; return; }
@@ -89,9 +89,8 @@ function renderLockedProfile(el, name){
   box.style.cssText = 'display:flex; flex-direction:column; align-items:center; text-align:center; gap:6px; padding:32px 20px; margin-top:8px;';
   box.innerHTML = `
     <span style="${ICON_BTN_STYLE} width:44px; height:44px; margin-bottom:6px;">${LOCK_ICON_SVG}</span>
-    <p class="eyebrow" style="margin:0;">PRIVATE</p>
     <h2 style="font-size:20px; font-weight:500; margin:0;"></h2>
-    <p class="muted" style="margin:0 0 14px;">비공개 프로필이에요. 본인이라면 PIN을 입력해주세요.</p>
+    <p class="muted" style="margin:0 0 14px;">비공개 프로필이에요.</p>
     <div class="row" style="justify-content:center; margin-bottom:0;">
       <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="PIN 4~6자리" style="width:120px; text-align:center; letter-spacing:0.3em;" />
       <button class="primary">열기</button>
@@ -127,9 +126,8 @@ function buildPrivacyPanel(name, setting){
   const isPrivate = !!(setting && setting.is_private);
   if(isPrivate){
     panel.innerHTML = `
-      <p class="eyebrow">PRIVACY</p>
       <p style="margin:0 0 4px; font-weight:500;">지금 비공개 상태예요</p>
-      <p class="muted" style="margin:0 0 12px;">PIN이 없으면 이 프로필, 주요 리프트, 전체 기록(순위)에서 기록을 볼 수 없어요.</p>
+      <p class="muted" style="margin:0 0 12px;">PIN이 있어야 기록을 볼 수 있어요.</p>
       <div class="row" style="margin-bottom:0;">
         <button class="primary" data-act="public">공개로 바꾸기</button>
         <button data-act="relock">이 기기에서 잠그기</button>
@@ -146,9 +144,8 @@ function buildPrivacyPanel(name, setting){
       <p class="status" style="margin:8px 0 0;"></p>`;
   } else {
     panel.innerHTML = `
-      <p class="eyebrow">PRIVACY</p>
       <p style="margin:0 0 4px; font-weight:500;">기록 비공개로 바꾸기</p>
-      <p class="muted" style="margin:0 0 12px;">비공개로 바꾸면 PIN이 없는 사람은 이 프로필, 주요 리프트, 전체 기록(순위)에서 기록을 볼 수 없어요. PIN 4~6자리를 정해주세요. 전에 정한 PIN이 있다면 그 PIN을 입력해주세요. 은행이나 휴대폰 비밀번호와 같은 숫자는 피해주세요.</p>
+      <p class="muted" style="margin:0 0 12px;">PIN 4~6자리를 정하면 PIN이 있어야 기록을 볼 수 있어요.</p>
       <div class="row" style="margin-bottom:0;">
         <input type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="PIN 4~6자리" style="width:120px; text-align:center; letter-spacing:0.3em;" />
         <button class="primary" data-act="private">비공개로 바꾸기</button>
@@ -226,7 +223,7 @@ async function showProfileDetail(name){
   if(!(await canViewProfile(name, setting))){ renderLockedProfile(el, name); return; }
 
   const { data, error } = await sb.from('records').select('*').eq('name', name).order('date', { ascending: true });
-  if(error){ el.innerHTML = `<p class="status err">${error.message}</p>`; return; }
+  if(error){ el.innerHTML = `<p class="status err">${escapeHtml(error.message)}</p>`; return; }
   if(!data || data.length === 0){ el.innerHTML = '<p class="muted">기록이 없어요.</p>'; return; }
 
   const { data: keyLiftsData } = await sb.from('key_lifts').select('*').eq('name', name).order('lift_name', { ascending: true });
@@ -296,7 +293,6 @@ function renderProfileBody(unit){
   const kEyebrow = document.createElement('p');
   kEyebrow.className = 'eyebrow';
   kEyebrow.textContent = 'PERFORMANCE';
-  keyLiftsBox.appendChild(kEyebrow);
   const kTitle = document.createElement('h3');
   kTitle.style.cssText = 'font-size:18px; font-weight:500; margin:0 0 12px;';
   kTitle.textContent = '주요 리프트 기록';
@@ -414,7 +410,7 @@ function renderProfileBody(unit){
   // ---------- 기록 검색 ----------
   const searchBox = document.createElement('div');
   searchBox.style.marginBottom = '16px';
-  searchBox.innerHTML = `<label>기록 검색 (동작 이름으로 검색)</label><input type="text" id="profile-search" placeholder="예: 스쿼트, EMOM, DU 등" style="width:100%;" />`;
+  searchBox.innerHTML = `<input type="text" id="profile-search" placeholder="동작 검색" aria-label="동작 검색" style="width:100%;" />`;
   el.appendChild(searchBox);
   document.getElementById('profile-search').oninput = (e)=>{
     filterProfileItemSections(e.target.value.trim().toLowerCase());
@@ -448,7 +444,6 @@ function renderProfileBody(unit){
     const sEyebrow = document.createElement('p');
     sEyebrow.className = 'eyebrow';
     sEyebrow.textContent = `SECTION ${String(sIdx + 1).padStart(2, '0')}`;
-    sectionGroup.appendChild(sEyebrow);
     const sTitle = document.createElement('h3');
     sTitle.style.cssText = 'font-size:17px; font-weight:500; margin:0 0 10px;';
     sTitle.textContent = sectionName;
@@ -462,7 +457,7 @@ function renderProfileBody(unit){
 
       const header = document.createElement('div');
       header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px;';
-      header.innerHTML = `<span class="item-name">${itemName}</span>
+      header.innerHTML = `<span class="item-name">${escapeHtml(itemName)}</span>
         <span style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
           <span class="muted">${new Set(records.map(r => r.date)).size}회 기록</span>
           <span class="muted" style="display:flex;">${CHEVRON_ICON_SVG}</span>
@@ -556,7 +551,7 @@ function showProfileItemDetail(name, itemName, records, isWeightType, isNumeric)
 
   const titleRow = document.createElement('div');
   titleRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin:8px 0 16px;';
-  titleRow.innerHTML = `<h2 style="font-size:20px; font-weight:500; margin:0;">${itemName}</h2><span class="muted">${records.length}회 기록</span>`;
+  titleRow.innerHTML = `<h2 style="font-size:20px; font-weight:500; margin:0;">${escapeHtml(itemName)}</h2><span class="muted">${records.length}회 기록</span>`;
   el.appendChild(titleRow);
 
   if(isNumeric){
@@ -610,11 +605,11 @@ function showProfileItemDetail(name, itemName, records, isWeightType, isNumeric)
     const textSpan = document.createElement('span');
     if(r.skipped){
       textSpan.style.color = 'var(--text-muted)';
-      textSpan.innerHTML = `<span class="muted">${r.date}</span> — 생략${r.scale_detail ? ' ('+r.scale_detail.replace('생략: ','')+')' : ''}`;
+      textSpan.innerHTML = `<span class="muted">${r.date}</span> — 생략${r.scale_detail ? ' ('+escapeHtml(r.scale_detail.replace('생략: ',''))+')' : ''}`;
     } else {
-      const detailTag = personalDetailHtml(r, unit) ?? (r.scaled ? `<div style="margin-top:4px;"><span class="tag scaled">※${r.scale_detail ? ' '+r.scale_detail : ''}</span></div>` : '');
+      const detailTag = personalDetailHtml(r, unit) ?? (r.scaled ? `<div style="margin-top:4px;"><span class="tag scaled">※${r.scale_detail ? ' '+escapeHtml(r.scale_detail) : ''}</span></div>` : '');
       const displayValue = r.type === 'weight' ? formatWeight(parseFloat(r.value) || 0, unit) : r.value;
-      textSpan.innerHTML = `<span class="muted">${r.date}</span> — <strong style="font-weight:500;">${displayValue}</strong>${detailTag}`;
+      textSpan.innerHTML = `<span class="muted">${r.date}</span> — <strong style="font-weight:500;">${escapeHtml(displayValue)}</strong>${detailTag}`;
     }
 
     const editBtn = document.createElement('button');
@@ -643,7 +638,6 @@ function buildDateLookupBox(records, unit){
   const dateEyebrow = document.createElement('p');
   dateEyebrow.className = 'eyebrow';
   dateEyebrow.textContent = 'CALENDAR';
-  titleCol.appendChild(dateEyebrow);
   const title = document.createElement('h3');
   title.style.cssText = 'font-size:18px; font-weight:500; margin:0;';
   title.textContent = '날짜별 기록 보기';

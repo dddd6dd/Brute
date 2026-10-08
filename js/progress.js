@@ -27,7 +27,7 @@ function bars(vals, higherBetter){
   }).join('') + '</div>';
 }
 function progCard(inner){ return '<div class="card" style="margin:0 0 12px;">' + inner + '</div>'; }
-function progHead(eyebrow, title, sub){ return '<p class="eyebrow" style="margin:0 0 4px;">' + eyebrow + '</p><h3 style="font-size:17px; font-weight:500; margin:0 0 ' + (sub ? '4px' : '12px') + ';">' + title + '</h3>' + (sub ? '<p class="muted" style="font-size:13px; margin:0 0 12px;">' + sub + '</p>' : ''); }
+function progHead(eyebrow, title){ return '<h3 style="font-size:17px; font-weight:500; margin:0 0 12px;">' + title + '</h3>'; }
 
 async function renderProgress(){
   const el = document.getElementById('board-content');
@@ -89,7 +89,7 @@ async function renderProgress(){
   const sum = document.createElement('div');
   sum.className = 'card';
   sum.style.margin = '0 0 12px';
-  sum.innerHTML = '<p class="eyebrow" style="margin:0 0 8px;">THIS WEEK</p>'
+  sum.innerHTML = '<h3 style="font-size:17px; font-weight:500; margin:0 0 12px;">이번 주</h3>'
     + '<div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px;">'
     + '<div><div style="font-size:22px; font-weight:600;">' + weekDays + '</div><div class="muted" style="font-size:13px;">운동한 날</div></div>'
     + '<button type="button" class="pr-btn" style="height:auto; padding:0; border:none; background:none; box-shadow:none; text-align:left;"><div style="font-size:22px; font-weight:600; color:' + (weekPRs.length ? 'var(--border-accent)' : 'inherit') + ';">' + weekPRs.length + '</div><div class="muted" style="font-size:13px;">PR 갱신' + (weekPRs.length ? ' ▾' : '') + '</div></button>'
@@ -240,7 +240,7 @@ async function renderProgress(){
   const limCard = document.createElement('div');
   limCard.className = 'card';
   limCard.style.margin = '0 0 12px';
-  limCard.innerHTML = progHead('WEAKNESS', '약점', '기록할 때 고른 아쉬운 동작, I GO U GO에서 멈춘 동작, 못 끝낸 파트를 모아요.');
+  limCard.innerHTML = progHead('WEAKNESS', '약점');
   const limList = Object.values(lim).filter(x => x.c >= 2).sort((a, b) => b.c - a.c);
   if(!limList.length) limCard.insertAdjacentHTML('beforeend', '<p class="muted" style="font-size:14px; margin:0;">같은 동작이 2번 이상 쌓이면 보여드려요. 메트콘을 기록할 때 아쉬운 동작을 하나 골라주세요.</p>');
   else {
@@ -261,7 +261,7 @@ async function renderProgress(){
   const liftCard = document.createElement('div');
   liftCard.className = 'card';
   liftCard.style.margin = '0 0 12px';
-  liftCard.innerHTML = progHead('STRENGTH', '리프팅 추세', 'RM 기록은 추정 1RM으로 맞춰서 비교해요. 작업 무게·RPE 기록은 처방과 같이 보여줘요.');
+  liftCard.innerHTML = progHead('STRENGTH', '리프팅 추세');
   const liftEntries = Object.entries(lifts).filter(([, l]) => l.length >= 1).sort((a, b) => b[1].length - a[1].length);
   if(!liftEntries.length) liftCard.insertAdjacentHTML('beforeend', '<p class="muted" style="font-size:14px; margin:0;">무게 기록이 아직 없어요.</p>');
   liftEntries.forEach(([n, list])=>{

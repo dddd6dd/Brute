@@ -3,7 +3,7 @@
 async function suggestTargetPace(card, it, n, rest, readTarget, compute){
   const date = LOG_CTX.date, name = LOG_CTX.name;
   const reasonEl = card.querySelector('.rs-treason');
-  const noBase = ()=>{ if(!readTarget()) reasonEl.textContent = '같은 요일·형식 기록이 생기면 지난 기록으로 기준을 잡아드려요. 직접 넣어도 돼요.'; };
+  const noBase = ()=>{ if(!readTarget()) reasonEl.textContent = ''; };
   if(!date || !name || !rest){ noBase(); return; }
   const head = (splitPrescribedLines(it.prescribed).filter(Boolean)[0] || '').trim().toLowerCase();
   const wd = new Date(date + 'T00:00:00').getDay();

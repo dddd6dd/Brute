@@ -37,7 +37,7 @@ function splitPrescribedLines(text){
 }
 // 줄 종류별 색: 구조(세트·라운드·렙 스킴)=진하게, 동작=보통, 휴식/메모=흐리게, 기록 안내=포인트색
 function prescribedLineStyle(l){
-  if(/^기록/.test(l)) return 'color:var(--border-accent); font-size:13px; margin-top:4px;';
+  if(/^기록/.test(l)) return 'color:var(--text-muted); font-size:13px; margin-top:4px;';
   if(/^-?\s*rest\b/i.test(l)) return 'color:var(--text-muted); font-size:14px;';
   if(/^\*/.test(l)) return 'color:var(--text-muted); font-size:14px;';
   if(/^(\d+\s*(sets?|rounds?)\b|\d+x\d+|\d+(-\d+)+$|emom|e\d+mom|amrap|for time|each for time|build to|every|then$|rpe\b)/i.test(l))
@@ -74,22 +74,35 @@ function findMovementVideo(name, line){
   return MV_MAP.get(k) || null;
 }
 const MV_BTN = 'display:inline-flex; align-items:center; gap:3px; margin-left:6px; padding:0 8px; height:22px; border-radius:999px; font-size:12px; font-weight:500; line-height:1; vertical-align:middle; text-decoration:none; cursor:pointer; white-space:nowrap;';
+const MV_ICON = '<svg width="20" height="14" viewBox="0 0 20 14" aria-hidden="true"><rect width="20" height="14" rx="3.5" fill="#FF0000"/><path d="M8 4v6l5.2-3z" fill="#fff"/></svg>';
+// 영상 아이콘은 동작 이름 왼쪽 고정 칸에 둬요. 같은 블록 안에 영상이 하나라도 있으면
+// 그 블록의 동작 줄을 모두 같은 칸만큼 들여서, 아이콘과 글자 시작점이 세로로 맞아요.
 function decorateMovementVideos(root){
   if(!MV_MAP) return;
+  const groups = new Map();
   (root || document).querySelectorAll('[data-mv]').forEach(div=>{
     div.querySelectorAll('.mv-btn').forEach(b => b.remove());
-    const name = div.dataset.mv;
-    const hit = findMovementVideo(name, div.textContent);
-    if(hit){
+    const g = div.parentNode;
+    if(!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(div);
+  });
+  groups.forEach(divs=>{
+    const hits = divs.map(d => findMovementVideo(d.dataset.mv, d.textContent));
+    const any = hits.some(Boolean);
+    divs.forEach((div, i)=>{
+      div.style.position = any ? 'relative' : '';
+      div.style.paddingLeft = any ? '28px' : '';
+      const hit = hits[i];
+      if(!hit) return;
       const a = document.createElement('a');
       a.className = 'mv-btn';
       a.href = hit.url; a.target = '_blank'; a.rel = 'noopener';
-      a.style.cssText = 'display:inline-flex; align-items:center; margin-left:6px; vertical-align:middle; line-height:0;';
-      a.title = 'YouTube';
-      a.innerHTML = '<svg width="20" height="14" viewBox="0 0 20 14" aria-hidden="true"><rect width="20" height="14" rx="3.5" fill="#FF0000"/><path d="M8 4v6l5.2-3z" fill="#fff"/></svg>';
+      a.setAttribute('aria-label', div.dataset.mv + ' 영상 보기');
+      a.style.cssText = 'position:absolute; left:-8px; top:-6px; width:36px; height:calc(1.5em + 12px); display:flex; align-items:center; justify-content:center; line-height:0; -webkit-tap-highlight-color:transparent;';
+      a.innerHTML = MV_ICON;
       a.onclick = e => e.stopPropagation();
-      div.appendChild(a);
-    }
+      div.prepend(a);
+    });
   });
 }
 function normalizeVideoUrl(u){

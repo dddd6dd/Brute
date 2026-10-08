@@ -1,6 +1,6 @@
 {
-  "name": "죠짐 노트",
-  "short_name": "죠짐 노트",
+  "name": "WOD",
+  "short_name": "WOD",
   "description": "조짐 크로스핏 팀 훈련 기록 트래커",
   "start_url": "./index.html",
   "scope": "./",

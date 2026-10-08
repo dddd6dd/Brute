@@ -200,11 +200,12 @@
   .hero-card {
     position: relative;
     display: flex; flex-direction: column; align-items: center; text-align: center;
-    padding: 32px 20px; margin-bottom: 24px; gap: 6px;
+    padding: 26px 20px; margin-bottom: 24px; gap: 6px;
   }
   .hero-card.card { background: var(--surface-2); }
-  .hero-card .top-pill { position: absolute; top: -14px; left: 20px; margin-bottom: 0; }
-  .hero-card h1 { font-size:30px; letter-spacing: -0.02em; }
+  .hero-card .top-pill { position: absolute; top: -9px; left: 20px; margin-bottom: 0; font-size: 8.5px; line-height: 1; letter-spacing: 0.08em; gap: 4px; padding: 4px 8px; }
+  .hero-card .top-pill .dot { width: 3px; height: 3px; }
+  .hero-card h1 { font-size:30px; letter-spacing: -0.02em; margin: 0; }
   .hero-card .sub { margin: 0; }
 
   /* 캘린더: 칸마다 걸려 있던 backdrop-filter 제거 (한 달 최대 31개 블러 레이어) */

@@ -5,7 +5,7 @@ async function renderBoard(){
   el.innerHTML = '<p class="muted">불러오고 있어요...</p>';
 
   const { data: programDates, error: progError } = await sb.from('programs').select('date').order('date', { ascending: false });
-  if(progError){ el.innerHTML = `<p class="status err">${progError.message}</p>`; return; }
+  if(progError){ el.innerHTML = `<p class="status err">${escapeHtml(progError.message)}</p>`; return; }
   if(!programDates || programDates.length === 0){ el.innerHTML = '<p class="muted">등록된 프로그램이 없어요.</p>'; return; }
 
   const currentUnit = getPreferredUnit();
@@ -51,7 +51,7 @@ async function renderBoard(){
 
     const { data: program } = await sb.from('programs').select('*').eq('date', date).single();
     const { data: allRecords, error } = await sb.from('records').select('*').eq('date', date);
-    if(error){ contentBox.innerHTML = `<p class="status err">${error.message}</p>`; return; }
+    if(error){ contentBox.innerHTML = `<p class="status err">${escapeHtml(error.message)}</p>`; return; }
     const records = (allRecords || []).filter(r => r.section !== PERSONAL_SECTION);
     if(records.length === 0){ contentBox.innerHTML = '<p class="muted">이 날짜에 등록된 기록이 없어요.</p>'; return; }
 

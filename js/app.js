@@ -126,12 +126,20 @@ document.getElementById('editor-publish-btn').onclick = async ()=>{
 
     // programs 테이블에 UPDATE RLS 정책이 없어서 upsert(충돌 시 UPDATE)가 막히는 환경이 있어요.
     // 이미 허용된 DELETE + INSERT로 우회해요. 사람들이 입력한 기록(records)은 건드리지 않아요.
+    // 넣기가 실패하면 지우기 전 프로그램을 다시 넣어서, 그날 프로그램이 비지 않게 해요.
+    const { data: prev } = await sb.from('programs').select('date, raw_text, items').eq('date', date).maybeSingle();
     const { error: delError } = await sb.from('programs').delete().eq('date', date);
     if(delError) throw new Error('기존 프로그램 정리에 실패했어요: ' + delError.message);
     const { error } = await sb.from('programs').insert({
       date, raw_text: JSON.stringify(items), items
     });
-    if(error) throw new Error('저장에 실패했어요: ' + error.message);
+    if(error){
+      if(prev){
+        const { error: backErr } = await sb.from('programs').insert(prev);
+        throw new Error('저장에 실패했어요: ' + error.message + (backErr ? ' (이전 프로그램 복구도 실패했어요: ' + backErr.message + ')' : ' (이전 프로그램은 그대로 두었어요)'));
+      }
+      throw new Error('저장에 실패했어요: ' + error.message);
+    }
 
     status.textContent = `${items.length}개 항목을 ${date}에 게시했어요`; status.className = "status ok";
     renderAdminProgramList();

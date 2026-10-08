@@ -283,7 +283,7 @@ async function renderAdminProgramList(){
   const el = document.getElementById('admin-program-list');
   el.innerHTML = '<p class="muted">불러오고 있어요...</p>';
   const { data, error } = await sb.from('programs').select('date').order('date', { ascending: false });
-  if(error){ el.innerHTML = `<p class="status err">${error.message}</p>`; return; }
+  if(error){ el.innerHTML = `<p class="status err">${escapeHtml(error.message)}</p>`; return; }
   el.innerHTML = '';
   if(!data || data.length === 0){ el.innerHTML = '<p class="muted">등록된 프로그램이 없어요.</p>'; return; }
 

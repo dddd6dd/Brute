@@ -80,7 +80,7 @@ function buildMultiPartCard(parts, subName, sectionName){
     + '<div class="mp-capnote muted" style="font-size:13px; margin-top:4px; text-align:right;"></div>'
     + '<div class="row" style="margin:12px 0 8px;"><label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="mp-skip" style="width:auto; height:auto;" />오늘 생략</label></div>'
     + '<div style="display:flex; align-items:center; gap:8px; margin:0 0 8px;"><span class="muted" style="font-size:14px; flex-shrink:0;">아쉬운 동작</span><select class="mp-lim" style="flex:1; min-width:0; padding:0 8px;"><option value="">없음</option>' + [...new Set(parts.flatMap(x => splitPrescribedLines(x.prescribed).map(l => extractMovementName(l)).filter(Boolean).map(limName)))].map(n => '<option value="' + escapeAttr(n) + '">' + escapeHtml(n) + '</option>').join('') + '</select></div>'
-    + '<input type="text" class="mp-notes" placeholder="메모 (선택, 예: BMU 5개까지 하고 끝)" style="width:100%; font-size:15px;" />';
+    + '<input type="text" class="mp-notes" placeholder="메모" style="width:100%; font-size:15px;" />';
   card.innerHTML = html;
 
   const rows = [...card.querySelectorAll('.mp-part')];
@@ -120,7 +120,7 @@ function buildMultiPartCard(parts, subName, sectionName){
   const skip = card.querySelector('.mp-skip');
   card.querySelectorAll('input').forEach(inp => { inp.addEventListener('input', compute); inp.addEventListener('change', compute); });
   compute();
-  skip.onchange = ()=>{ rows.forEach(r => r.querySelectorAll('input').forEach(x => x.disabled = skip.checked)); card.querySelector('.mp-notes').placeholder = skip.checked ? '생략 이유 (선택)' : '메모 (선택, 예: BMU 5개까지 하고 끝)'; };
+  skip.onchange = ()=>{ rows.forEach(r => r.querySelectorAll('input').forEach(x => x.disabled = skip.checked)); card.querySelector('.mp-notes').placeholder = skip.checked ? '생략 이유' : '메모'; };
 
   card._collect = (date, name)=>{
     const notes = card.querySelector('.mp-notes').value.trim();
@@ -227,7 +227,6 @@ function buildRepeatSetCard(it){
     + '<div class="muted" style="margin:0 0 10px; line-height:1.55;">' + formatPrescribed(it.prescribed) + '</div>'
     + '<div class="rs-modes" style="display:flex; gap:6px; margin:0 0 10px;"><button type="button" class="rs-mode" data-m="std" style="height:30px; font-size:13px; padding:0 12px; border-radius:999px;">기본</button><button type="button" class="rs-mode" data-m="igug" style="height:30px; font-size:13px; padding:0 12px; border-radius:999px;">I GO U GO</button></div>'
     + '<div class="rs-normal">'
-    + '<p class="muted" style="font-size:13px; margin:0 0 6px;">' + unitWord + '가 끝날 때 시계 시간을 Finish에 적어주세요. ' + (rest ? unitWord + '별 시간과 다음 시작 시간(Rest ' + fmtClock(rest) + ')은 자동으로 계산돼요.' : unitWord + '별 시간은 자동으로 계산돼요.') + '</p>'
     + '<div class="rs-target" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:0 0 8px; padding:10px 12px; border-radius:var(--radius); background:var(--surface-1);"><span style="font-size:13px; font-weight:600; margin-right:4px;">목표 세트</span><input type="number" inputmode="numeric" class="rs-tmin" placeholder="분" style="width:52px; height:34px;" /><span>:</span><input type="number" inputmode="numeric" class="rs-tsec" placeholder="초" style="width:52px; height:34px;" /><span class="rs-treason muted" style="font-size:12px; flex-basis:100%; line-height:1.4;"></span></div>'
     + '<div style="display:grid; grid-template-columns:52px auto minmax(0,1fr); gap:10px; font-size:12px; color:var(--text-muted); padding:4px 0;"><span></span><span>Finish</span><span style="text-align:right;">Split</span></div>'
     + rowsHtml
@@ -239,7 +238,7 @@ function buildRepeatSetCard(it){
     + '</div>' + igHtml
     + '<div class="row" style="margin:12px 0 8px;"><label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="rs-skip" style="width:auto; height:auto;" />오늘 생략</label></div>'
     + '<div style="display:flex; align-items:center; gap:8px; margin:0 0 8px;"><span class="muted" style="font-size:14px; flex-shrink:0;">아쉬운 동작</span><select class="rs-lim" style="flex:1; min-width:0; padding:0 8px;"><option value="">없음</option>' + [...new Set(igMoves.map(m => limName(m.label)))].map(n => '<option value="' + escapeAttr(n) + '">' + escapeHtml(n) + '</option>').join('') + '</select></div>'
-    + '<input type="text" class="rs-notes" placeholder="메모 (선택, 예: 4' + unitWord + '부터 끊어감)" style="width:100%; font-size:15px;" />';
+    + '<input type="text" class="rs-notes" placeholder="메모" style="width:100%; font-size:15px;" />';
 
   const rows = [...card.querySelectorAll('.rs-row')];
   const readTarget = ()=>{ const m = card.querySelector('.rs-tmin').value, sc = card.querySelector('.rs-tsec').value; if(m === '' && sc === '') return null; const t = (parseInt(m) || 0) * 60 + (parseInt(sc) || 0); return t > 0 ? t : null; };
@@ -453,9 +452,8 @@ function buildPersonalSection(programItems){
   ensurePersonalDatalist(programItems);
   const box = document.createElement('div');
   box.style.cssText = 'background:var(--surface-2); border:1px dashed var(--border-strong); border-radius:var(--radius-lg); padding:16px; margin-bottom:16px;';
-  box.innerHTML = '<p class="eyebrow">PERSONAL</p>'
-    + '<h3 style="font-size:18px; font-weight:500; margin:0 0 4px;">Personal Training</h3>'
-    + '<p class="muted" style="margin:0 0 12px; font-size:14px;">프로그램 외 개인 운동이에요. 내 프로필에만 저장되고 전체 기록에는 안 나와요.</p>'
+  box.innerHTML = '<h3 style="font-size:18px; font-weight:500; margin:0 0 4px;">Personal Training</h3>'
+    + '<p class="muted" style="margin:0 0 12px; font-size:14px;">내 프로필에만 저장돼요.</p>'
     + '<div class="p-entries" style="display:flex; flex-direction:column; gap:12px;"></div>'
     + '<div class="p-picker" style="display:none; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin-top:12px;"></div>'
     + '<button type="button" class="p-add" style="margin-top:12px; height:40px; width:100%;">+ 운동 추가</button>';
@@ -478,7 +476,7 @@ function buildPersonalSection(programItems){
   };
 
   const field = (label, html)=> '<div style="display:flex; flex-direction:column; gap:4px; min-width:0;"><span class="muted" style="font-size:12px;">' + label + '</span>' + html + '</div>';
-  const notesHtml = '<input type="text" class="p-notes" placeholder="메모 (선택)" style="width:100%; margin-top:10px; font-size:15px;" />';
+  const notesHtml = '<input type="text" class="p-notes" placeholder="메모" style="width:100%; margin-top:10px; font-size:15px;" />';
 
   function addSetRow(card, copy){
     const wrap = card.querySelector('.p-sets');
@@ -1128,11 +1126,6 @@ async function renderLogForm(date){
     const sectionBox = document.createElement('div');
     sectionBox.style.cssText = 'background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px; margin-bottom:16px; box-shadow:var(--card-shadow);';
 
-    const sectionEyebrow = document.createElement('p');
-    sectionEyebrow.className = 'eyebrow';
-    sectionEyebrow.textContent = `SECTION 0${sIdx + 1}`;
-    sectionBox.appendChild(sectionEyebrow);
-
     const sectionTitle = document.createElement('h3');
     sectionTitle.style.cssText = 'font-size:18px; font-weight:500; margin:0 0 12px;';
     sectionTitle.textContent = stripLabelPrefix(sectionName);
@@ -1226,14 +1219,14 @@ async function renderLogForm(date){
             <label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="skip-check" style="width:auto; height:auto;" />오늘 생략</label>
           </div>
           <div class="skip-reason-wrap hidden" style="margin-bottom:8px;">
-            <input type="text" class="skip-reason" placeholder="생략 이유 (예: 시간 부족, 부상 등)" style="width:100%; font-size:15px;" />
+            <input type="text" class="skip-reason" placeholder="생략 이유" style="width:100%; font-size:15px;" />
           </div>
           <div class="record-input-wrap">
             <div class="row" style="margin-bottom:8px;">
               ${inputHtml}
               <label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="scale-check" style="width:auto; height:auto;" />세부기록</label>
             </div>
-            <input type="text" class="scale-detail hidden" placeholder="예: 3라운드 145lb에서 깨짐, 목표 무게 못채움 등" style="width:100%; font-size:15px;" />
+            <input type="text" class="scale-detail hidden" placeholder="메모" style="width:100%; font-size:15px;" />
           </div>
         `;
         const checkbox = card.querySelector('.scale-check');
@@ -1276,7 +1269,7 @@ async function renderLogForm(date){
         <label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="skip-check" style="width:auto; height:auto;" />오늘 생략</label>
       </div>
       <div class="skip-reason-wrap hidden" style="margin-bottom:8px;">
-        <input type="text" class="skip-reason" placeholder="생략 이유 (예: 시간 부족, 부상 등)" style="width:100%; font-size:15px;" />
+        <input type="text" class="skip-reason" placeholder="생략 이유" style="width:100%; font-size:15px;" />
       </div>
       <div class="record-input-wrap">
         <div class="movement-rows"></div>
@@ -1284,7 +1277,7 @@ async function renderLogForm(date){
         <div class="row" style="margin-top:12px;">
           <label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="scale-check" style="width:auto; height:auto;" />세부기록</label>
         </div>
-        <input type="text" class="scale-detail hidden" placeholder="예: 3라운드째 Thruster에서 깨짐 등" style="width:100%; font-size:15px;" />
+        <input type="text" class="scale-detail hidden" placeholder="메모" style="width:100%; font-size:15px;" />
       </div>
     `;
 
@@ -1388,14 +1381,14 @@ async function renderLogForm(date){
         <label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="skip-check" style="width:auto; height:auto;" />오늘 생략</label>
       </div>
       <div class="skip-reason-wrap hidden" style="margin-bottom:8px;">
-        <input type="text" class="skip-reason" placeholder="생략 이유 (예: 시간 부족, 부상 등)" style="width:100%; font-size:15px;" />
+        <input type="text" class="skip-reason" placeholder="생략 이유" style="width:100%; font-size:15px;" />
       </div>
       <div class="record-input-wrap">
         <div class="round-rows">${roundsHtml}</div>
         <div class="row" style="margin-top:8px;">
           <label style="display:flex; align-items:center; gap:4px; font-size:15px; margin:0;"><input type="checkbox" class="scale-check" style="width:auto; height:auto;" />세부기록</label>
         </div>
-        <input type="text" class="scale-detail hidden" placeholder="예: 3라운드에서 깨짐, 목표 못채움 등" style="width:100%; font-size:15px;" />
+        <input type="text" class="scale-detail hidden" placeholder="메모" style="width:100%; font-size:15px;" />
       </div>
     `;
 

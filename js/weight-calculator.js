@@ -189,7 +189,7 @@ function initFloatingWeightCalc(){
   panel.appendChild(panelInner);
 
   panelInner.innerHTML = `
-    <p class="eyebrow" style="margin:0 0 6px;">CALCULATOR</p>
+    
     <h3 style="font-size:18px; font-weight:500; margin:0 0 14px;">무게 계산기</h3>
 
     <div class="row" style="margin-bottom:16px;">

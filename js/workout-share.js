@@ -282,6 +282,7 @@
             : isPersonal ? personalPrescription(p, unit) : '',
           personalName: isPersonal && personalHasName(p, name) ? name : '',
           rawLines: isPersonal && p.f.t === 'skill',
+          personalLines: !!isPersonal,
           rows: []
         };
         map.set(key, entry);
@@ -316,7 +317,7 @@
 
       entry.rows.push({
         label: suffix,
-        value: isPersonal && r.type === 'note' ? ''
+        value: isPersonal && (r.type === 'note' || p.f.t === 'accessory' || p.f.t === 'lifting') ? ''
           : isPersonal && r.type === 'amrap' ? value(r, unit).replace(/\brounds?\b/i, 'ROUNDS') : value(r, unit),
         detail,
         note
@@ -449,7 +450,7 @@
         (it.name === entry.name || (total && labelKey(it.subsection || it.section) === labelKey(base))));
       const key = entry.section + '\n' + (item ? item.subsection || '' : '');
       if (!groups.has(key)) groups.set(key, []);
-      const lines = (cfg.prescribed || !entry.rows.length) && entry.prescribed
+      const lines = (cfg.prescribed || !entry.rows.length || entry.personalLines) && entry.prescribed
         ? (entry.rawLines ? prescriptionLines(entry.prescribed) : visiblePrescriptionLines(entry.prescribed, cfg.intent)).filter(line => !/^\s*(?:WORKOUT|원본 처방)\s*:?\s*$/i.test(line)) : [];
       const internalRest = lines.some(line => /^(?:\d+\s*(?:sets?|rounds?)\b|EMOM\b|E\d+MOM\b|every\b)/i.test(line));
       const rests = lines.map((line, index) => ({ index, seconds: restDuration(line) }))
@@ -479,30 +480,45 @@
       group.forEach(part => {
         const { entry } = part;
         const lines = part.lines.filter((_, i) => !(commonFormat && !part.total && i === 0) && !(sharedRest != null && part.rests.some(rest => rest.index === i)))
-          .map(text => ({ text: entry.rawLines ? text : shareEnglish(text), role: /^(?:each for time|for time|\d+\s*(?:sets?|rounds?)|E\d*MOM|AMRAP|time cap)\b/i.test(text) ? 'format' : 'body' }));
-        if (entry.personalName && lines.length) lines.unshift({ text: shareEnglish(entry.personalName), role: 'label' });
+          .map(text => ({ text: entry.personalLines && !entry.rawLines ? shareEnglish(text) : text, role: /^(?:each for time|for time|\d+\s*(?:sets?|rounds?)|E\d*MOM|AMRAP|time cap)\b/i.test(text) ? 'format' : 'body' }));
+        if (entry.personalName && lines.length) lines.unshift({ text: entry.personalName, role: 'label' });
+        else if (!part.total && !commonFormat && !entry.personalLines && lines.length
+          && labelKey(entry.name) !== labelKey(entry.section)
+          && !labelKey(lines[0].text).includes(labelKey(entry.name))) {
+          lines.unshift({ text: entry.name, role: 'label' });
+        }
         if (part.total) {
           lines.length = 0;
           if (cfg.records && entry.rows.length) lines.push({ text: 'TOTAL', role: 'label' });
         } else if (!lines.length && labelKey(entry.name) !== labelKey(entry.section)) {
           // With original hidden or missing, keep a quiet identifier rather than a headline.
-          lines.push({ text: shareEnglish(entry.name), role: 'label' });
+          lines.push({ text: entry.name, role: 'label' });
         }
+        const shown = lines.map(line => line.text.toLowerCase());
+        entry.rows.forEach(row => {
+          const v = shareEnglish(row.value);
+          row.shareValue = v;
+          row.shareDetail = row.detail.map(text => {
+            let d = shareEnglish(text);
+            if (v && d.startsWith(v + ' (')) { row.shareValue = d; return ''; }
+            if (v) d = d.split(' · ').filter(seg => seg !== v).join(' · ');
+            if (v && d === 'FINISH ' + v) return '';
+            if (!d || d === v || shown.some(s => s.includes(d.toLowerCase()))) return '';
+            return d;
+          }).filter(Boolean);
+        });
         const records = cfg.records ? entry.rows.filter(row => row.value !== '') : [];
         if (records.length === 1 && lines.length) {
           const row = records[0];
-          lines[0].value = shareEnglish((row.label ? row.label + ' · ' : '') + row.value);
+          lines[0].value = (row.label ? shareEnglish(row.label) + ' · ' : '') + row.shareValue;
         } else records.forEach(row => lines.push({
-          text: shareEnglish((row.label ? row.label + ' · ' : '') + row.value), role: 'record'
+          text: (row.label ? shareEnglish(row.label) + ' · ' : '') + row.shareValue, role: 'record'
         }));
         const notes = new Set();
         entry.rows.forEach(row => {
-          if (cfg.details) row.detail.forEach(text => {
-            const normalized = shareEnglish(text);
-            if (normalized !== shareEnglish(row.value)) lines.push({ text: normalized, role: 'detail' });
-          });
+          if (cfg.details) row.shareDetail.forEach(text => lines.push({ text, role: 'detail' }));
           if (cfg.notes && row.note && !notes.has(row.note)) {
-            lines.push({ text: '※ ' + shareEnglish(row.note), role: 'note' });
+            lines.push({ text: '※ ' + row.note, role: 'note' });
             notes.add(row.note);
           }
         });
@@ -514,7 +530,7 @@
         last.lines.push({ text: 'BT REST ' + Math.floor(sharedRest / 60) + ':' + String(sharedRest % 60).padStart(2, '0'), role: 'rest' });
       }
     });
-    if (cfg.foot.trim()) addBlock([{ text: shareEnglish(cfg.foot.trim()), role: 'foot' }]);
+    if (cfg.foot.trim()) addBlock([{ text: cfg.foot.trim(), role: 'foot' }]);
     return blocks;
   }
 
@@ -587,7 +603,7 @@
     }
     function isSession(block) { return block.lines.some(line => /^(body|label|record|detail|note)$/.test(line.role)); }
     function isTotal(block) { return block.lines[0] && block.lines[0].text === 'TOTAL' && block.lines[0].role === 'label'; }
-    function add(ops, h, original) { chunks.push({ ops, h: h + theme.gap * scale, original }); }
+    function add(ops, h, original, keep) { chunks.push({ ops, h: h + theme.gap * scale, original, keep }); }
     function session(block, index, x, w, variant) {
       const ops = [], { source, scores } = split(block.lines);
       const inset = 16 * scale, scoreW = w * .31;
@@ -664,7 +680,7 @@
           h += 22 * scale;
           shape(ops, 'line', { x1: left, y1: h, x2: left + columnW, y2: h, alpha: .6 });
         }
-        add(ops, h, format && mode === 'poster' ? [format, first] : block.lines); continue;
+        add(ops, h, format && mode === 'poster' ? [format, first] : block.lines, true); continue;
       }
       if (mode === 'cards' && isSession(block) && !isTotal(block)) {
         const batch = [block];
@@ -716,7 +732,9 @@
         ops.push(moved);
       }); y += chunk.h;
     }
-    chunks.forEach(chunk => {
+    chunks.forEach((chunk, ci) => {
+      const following = chunks[ci + 1];
+      if (chunk.keep && following && ops.length && y + chunk.h + Math.min(following.h, capacity * .3) > contentLimit) flush();
       if (chunk.h <= capacity) { place(chunk); return; }
       // Very long content keeps every line, using plain continuation rows across pages.
       if (ops.length) flush();
@@ -1564,7 +1582,7 @@
         ).join('\n')).join('\n\n').trim();
     }
     copy.onclick = async () => {
-      const t = shareEnglish(text());
+      const t = text();
       try {
         if (!navigator.clipboard) {
           throw new Error('clipboard unavailable');
