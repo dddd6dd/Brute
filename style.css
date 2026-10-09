@@ -1,10 +1,15 @@
 
+  /* I AM BRUTE · Liquid Glass pass v2
+     레이아웃·치수·문구·상태 색상은 원본 그대로. 바뀐 것은 재질(표면/유리/그림자)과 모션뿐.
+     유리(backdrop-filter)는 떠 있는 컨트롤 층에만: .tabs, .top-pill, #floating-calc.
+     카드·캘린더 칸·이름 칩·입력칸은 콘텐츠 층: 블러 없이 불투명에 가까운 표면. */
   :root {
+    color-scheme: light;
     --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --font-mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
 
-    --surface-0: #f2f2f0; --surface-1: #ffffff; --surface-2: rgba(255,255,255,0.64);
-    --blob-a: rgba(255,255,255,0.68); --blob-b: rgba(112,112,105,0.08); --blob-c: rgba(255,255,255,0.46);
+    --surface-0: #f2f2f0; --surface-1: #ffffff; --surface-2: rgba(255,255,255,0.74);
+    --blob-a: rgba(255,255,255,0.70); --blob-b: rgba(112,112,105,0.06); --blob-c: rgba(255,255,255,0.48);
     --text-primary: #111110; --text-secondary: #57554f; --text-muted: #74726d;
     --border: rgba(17,17,16,0.08); --border-strong: rgba(17,17,16,0.14);
     --border-accent: #2f6fd6;
@@ -14,13 +19,37 @@
     --chart-accent: 74, 122, 181; --chart-grid: rgba(17,17,16,0.07);
     --chart-tooltip-bg: rgba(24,24,22,0.86); --chart-tooltip-border: rgba(255,255,255,0.14);
     --radius: 10px; --radius-lg: 16px;
-    --blur: blur(18px) saturate(110%);
-    --card-shadow: inset 0 1px 0 rgba(255,255,255,0.80), inset 0 -0.5px 0 rgba(17,17,16,0.025), 0 4px 16px rgba(17,17,16,0.035);
+
+    /* 콘텐츠 표면: 블러 없음. 위쪽 1px 빛 + 아주 옅은 바닥 그림자 */
+    --card-shadow: inset 0 1px 0 rgba(255,255,255,0.85), 0 1px 2px rgba(17,17,16,0.03), 0 4px 14px rgba(17,17,16,0.03);
+
+    /* 유리 재질 (떠 있는 컨트롤 전용) */
+    --blur: blur(16px) saturate(140%);
+    --blur-panel: blur(22px) saturate(140%);
+    --glass-bg: rgba(250,250,248,0.58);
+    --glass-panel: rgba(252,252,250,0.86);
+    --glass-edge: rgba(255,255,255,0.72);
+    --glass-rim: rgba(17,17,16,0.07);
+    --glass-highlight: rgba(255,255,255,0.95);
+    --glass-lowlight: rgba(17,17,16,0.05);
+    --glass-selected: rgba(255,255,255,0.92);
+    --glass-shadow: inset 0 1px 0 var(--glass-highlight), inset 0 -0.5px 0 var(--glass-lowlight), 0 0 0 0.5px var(--glass-rim), 0 6px 20px rgba(17,17,16,0.07);
+    --glass-shadow-float: inset 0 1px 0 var(--glass-highlight), 0 0 0 0.5px var(--glass-rim), 0 2px 6px rgba(17,17,16,0.06), 0 12px 32px rgba(17,17,16,0.10);
+    --thumb-shadow: inset 0 1px 0 var(--glass-highlight), 0 0 0 0.5px var(--glass-rim), 0 1px 3px rgba(17,17,16,0.10);
+
+    /* 모션 */
+    --ease-std: cubic-bezier(.32,.72,0,1);
+    --ease-out: cubic-bezier(.22,.8,.24,1);
+    --dur-press: 120ms;
+    --dur-quick: 160ms;
+    --dur-panel: 280ms;
+    --dur-panel-out: 220ms;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --surface-0: #0c0c0b; --surface-1: #191918; --surface-2: rgba(255,255,255,0.045);
-      --blob-a: rgba(255,255,255,0.045); --blob-b: rgba(255,255,255,0.018); --blob-c: rgba(255,255,255,0.032);
+      color-scheme: dark;
+      --surface-0: #0c0c0b; --surface-1: #1a1a19; --surface-2: rgba(255,255,255,0.05);
+      --blob-a: rgba(255,255,255,0.04); --blob-b: rgba(255,255,255,0.015); --blob-c: rgba(255,255,255,0.03);
       --text-primary: #f5f4f2; --text-secondary: #a7a49c; --text-muted: #96938d;
       --border: rgba(255,255,255,0.08); --border-strong: rgba(255,255,255,0.16);
       --bg-success: #17300a; --text-success: #9ad46a;
@@ -28,7 +57,18 @@
       --bg-danger: #401212; --text-danger: #f19a9a;
       --chart-accent: 150, 189, 233; --chart-grid: rgba(255,255,255,0.08);
       --chart-tooltip-bg: rgba(40,40,38,0.9); --chart-tooltip-border: rgba(255,255,255,0.16);
-      --card-shadow: inset 0 1px 0 rgba(255,255,255,0.075), inset 0 -0.5px 0 rgba(255,255,255,0.018), 0 4px 16px rgba(0,0,0,0.22);
+      --card-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 1px 2px rgba(0,0,0,0.25), 0 4px 14px rgba(0,0,0,0.18);
+
+      --glass-bg: rgba(34,34,32,0.55);
+      --glass-panel: rgba(30,30,29,0.88);
+      --glass-edge: rgba(255,255,255,0.12);
+      --glass-rim: rgba(0,0,0,0.5);
+      --glass-highlight: rgba(255,255,255,0.11);
+      --glass-lowlight: rgba(0,0,0,0.3);
+      --glass-selected: rgba(255,255,255,0.12);
+      --glass-shadow: inset 0 1px 0 var(--glass-highlight), inset 0 -0.5px 0 var(--glass-lowlight), 0 0 0 0.5px var(--glass-rim), 0 8px 24px rgba(0,0,0,0.32);
+      --glass-shadow-float: inset 0 1px 0 var(--glass-highlight), 0 0 0 0.5px var(--glass-rim), 0 2px 6px rgba(0,0,0,0.3), 0 14px 36px rgba(0,0,0,0.45);
+      --thumb-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 0 0 0.5px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.35);
     }
   }
   * { box-sizing: border-box; }
@@ -58,28 +98,49 @@
   .top-pill {
     display: inline-flex; align-items: center; gap: 8px;
     font-family: var(--font-mono); font-size:13px; letter-spacing: 0.03em;
-    color: var(--text-secondary); background: var(--surface-2);
+    color: var(--text-secondary); background: var(--glass-bg);
     backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
-    border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; margin-bottom: 18px;
-    box-shadow: var(--card-shadow);
+    border: 1px solid var(--glass-edge); border-radius: 999px; padding: 6px 14px; margin-bottom: 18px;
+    box-shadow: var(--glass-shadow);
   }
   .top-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: #4caf50; display: inline-block; }
   h1 { font-size:23px; font-weight: 500; margin: 0 0 4px; letter-spacing: -0.01em; }
   .sub { color: var(--text-secondary); font-size:15px; margin: 0 0 24px; }
+
+  /* 탭: 하나의 유리 막대 + 선택 표시가 미끄러지는 thumb */
   .tabs {
     display: flex; gap: 4px; margin-bottom: 24px; overflow-x: auto;
-    background: var(--surface-2); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
-    border: 1px solid var(--border); border-radius: 999px; padding: 4px;
-    box-shadow: var(--card-shadow);
+    position: relative;
+    background: var(--glass-bg); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--glass-edge); border-radius: 999px; padding: 4px;
+    box-shadow: var(--glass-shadow);
+    --tab-i: 0;
   }
   .tab-btn {
     border: none; background: none; padding: 10px 0; font-size:15px;
     color: var(--text-secondary); cursor: pointer; border-radius: 999px;
-    font-family: inherit; white-space: nowrap; transition: background .22s cubic-bezier(.32,.72,0,1), color .18s ease, box-shadow .22s ease, transform .16s cubic-bezier(.32,.72,0,1);
+    font-family: inherit; white-space: nowrap;
+    transition: color var(--dur-quick) ease, background-color var(--dur-panel) var(--ease-std), box-shadow var(--dur-panel) var(--ease-std), transform var(--dur-press) var(--ease-out);
     flex: 1; display: flex; align-items: center; justify-content: center;
+    position: relative; z-index: 1;
   }
   .tab-btn svg { display: block; }
-  .tab-btn.active { color: var(--text-primary); background: var(--surface-1); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .tab-btn.active { color: var(--text-primary); background: var(--glass-selected); box-shadow: var(--thumb-shadow); }
+  @supports selector(:has(*)) {
+    .tabs::before {
+      content: ''; position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px;
+      width: calc((100% - 16px) / 3); border-radius: 999px;
+      background: var(--glass-selected); box-shadow: var(--thumb-shadow);
+      transform: translateX(calc(var(--tab-i) * (100% + 4px)));
+      transition: transform var(--dur-panel) var(--ease-std);
+      pointer-events: none;
+    }
+    .tabs:has(#tab-board.active) { --tab-i: 1; }
+    .tabs:has(#tab-profile.active) { --tab-i: 2; }
+    .tabs:not(:has(.tab-btn.active))::before { opacity: 0; }
+    .tab-btn.active { background: transparent; box-shadow: none; }
+  }
+
   label { font-size:15px; color: var(--text-secondary); display: block; margin-bottom: 4px; }
   input, select, textarea, button {
     font-family: inherit; font-size:16px; border-radius: var(--radius);
@@ -87,16 +148,27 @@
   }
   input, select { height: 36px; padding: 0 10px; }
   textarea { padding: 10px; width: 100%; resize: vertical; }
+  input, select, textarea { transition: border-color var(--dur-quick) ease, box-shadow var(--dur-quick) ease; }
+  input:focus, select:focus, textarea:focus { border-color: var(--border-strong); }
+
+  /* 버튼: 누르는 순간 바로 줄고(80ms), 놓으면 부드럽게 복귀(120ms). filter 전환 제거 */
   button {
     height: 36px; padding: 0 16px; cursor: pointer; border: 1px solid var(--border-strong);
-    transition: filter .18s ease, transform .16s cubic-bezier(.32,.72,0,1), box-shadow .2s ease, background-color .2s ease, border-color .2s ease;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-quick) ease, border-color var(--dur-quick) ease, box-shadow var(--dur-quick) ease, opacity var(--dur-quick) ease;
   }
-  button:hover { filter: brightness(1.02); }
-  button:active { transform: scale(0.985); transition-duration: .09s; }
+  button:not(.tab-btn):not(.primary):not(.danger) { box-shadow: inset 0 1px 0 var(--glass-highlight), inset 0 -0.5px 0 var(--glass-lowlight); }
+  @media (hover: hover) {
+    button:hover { border-color: var(--border-strong); }
+    button.primary:hover { opacity: 0.92; }
+  }
+  button:active { transform: scale(0.97); transition-duration: 80ms; }
+  .tab-btn:active { transform: scale(0.95); }
   button.primary { border: none; background: var(--text-primary); color: var(--surface-0); font-weight: 500; border-radius: 999px; }
-  button.primary:hover { filter: brightness(1.08); }
   button.danger { border-color: var(--text-danger); color: var(--text-danger); background: transparent; }
   .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+
+  /* 카드: 콘텐츠 층. 블러 없음 */
   .card {
     background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-lg);
     padding: 16px 18px; margin-bottom: 10px;
@@ -119,117 +191,106 @@
     display: inline-block; padding: 6px 14px; margin: 0 8px 8px 0; border-radius: 999px;
     border: 1px solid var(--border-strong); cursor: pointer; font-size:15px; background: var(--surface-2);
     box-shadow: var(--card-shadow);
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color var(--dur-quick) ease, transform var(--dur-press) var(--ease-out);
   }
-  .name-chip:hover { background: var(--surface-1); }
+  @media (hover: hover) { .name-chip:hover { background: var(--surface-1); } }
+  .name-chip:active { transform: scale(0.97); transition-duration: 80ms; }
   .back-link { font-size:15px; color: var(--text-secondary); cursor: pointer; margin-bottom: 12px; display: inline-block; }
   .hero-card {
     position: relative;
     display: flex; flex-direction: column; align-items: center; text-align: center;
-    padding: 32px 20px; margin-bottom: 24px; gap: 6px;
+    padding: 26px 20px; margin-bottom: 24px; gap: 6px;
   }
-  .hero-card .top-pill { position: absolute; top: -14px; left: 20px; margin-bottom: 0; }
-  .hero-card h1 { font-size:30px; letter-spacing: -0.02em; }
+  .hero-card.card { background: var(--surface-2); }
+  .hero-card .top-pill { position: absolute; top: -9px; left: 20px; margin-bottom: 0; font-size: 8.5px; line-height: 1; letter-spacing: 0.08em; gap: 4px; padding: 4px 8px; }
+  .hero-card .top-pill .dot { width: 3px; height: 3px; }
+  .hero-card h1 { font-size:30px; letter-spacing: -0.02em; margin: 0; }
   .hero-card .sub { margin: 0; }
 
+  /* 캘린더: 칸마다 걸려 있던 backdrop-filter 제거 (한 달 최대 31개 블러 레이어) */
   .cal-cell {
     font-family: var(--font-mono); text-align: center; font-size: 14px;
     padding: 7px 0; border-radius: var(--radius); box-sizing: border-box;
-    color: var(--text-muted); position: relative; transition: background .22s cubic-bezier(.32,.72,0,1), box-shadow .22s ease, border-color .22s ease;
+    color: var(--text-muted); position: relative;
+    border: 1px solid transparent;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color var(--dur-quick) ease, box-shadow var(--dur-quick) ease, border-color var(--dur-quick) ease;
   }
   .cal-cell.clickable { cursor: pointer; }
   .cal-cell.available {
     background: var(--surface-2);
-    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
-    border: 1px solid var(--border);
-    box-shadow: var(--card-shadow);
+    border-color: var(--border);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
     color: var(--text-primary); font-weight: 500;
   }
   .cal-cell.today::after {
     content: ''; position: absolute; left: 50%; bottom: 3px; transform: translateX(-50%);
     width: 4px; height: 4px; border-radius: 50%; background: var(--border-accent);
   }
-  @keyframes calPop { from { transform: scale(0.985); } to { transform: scale(1); } }
+  @keyframes calPop { from { transform: scale(0.94); } to { transform: scale(1); } }
   .cal-cell.selected {
-    animation: calPop .2s cubic-bezier(.32,.72,0,1);
+    animation: calPop var(--dur-quick) var(--ease-out);
     font-weight: 600; z-index: 1;
+    background: var(--glass-selected);
+    border-color: var(--border-strong);
+    box-shadow: var(--thumb-shadow);
   }
 
-  @keyframes revealIn { from { opacity: 0.55; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
-  .reveal-anim { animation: revealIn .22s cubic-bezier(.32,.72,0,1); }
-  .fade-swap { animation: revealIn .24s cubic-bezier(.32,.72,0,1); }
+  /* 등장: 0.55에서 시작하던 반쯤 보이는 깜빡임 대신 0에서 짧게 */
+  @keyframes revealIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @keyframes swapIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .reveal-anim { animation: revealIn 200ms var(--ease-out); }
+  .fade-swap { animation: swapIn 240ms var(--ease-out); }
 
-/* Liquid Glass material pass.
-   Keep all original layout, dimensions, typography and semantic status colors.
-   JS-driven height/max-height transitions remain untouched: their transitionend
-   handlers finish opening and closing panels. No universal transition override. */
-:root {
-  --glass-control: rgba(255,255,255,0.24);
-  --glass-edge: rgba(255,255,255,0.76);
-  --glass-highlight: rgba(255,255,255,0.92);
-  --glass-lowlight: rgba(17,17,16,0.065);
-  --glass-selected: rgba(255,255,255,0.56);
-  --glass-shadow: inset 0 1px 1px var(--glass-highlight), inset 0 -1px 1px var(--glass-lowlight), 0 5px 16px rgba(17,17,16,0.07);
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --glass-control: rgba(255,255,255,0.04);
-    --glass-edge: rgba(255,255,255,0.14);
-    --glass-highlight: rgba(255,255,255,0.20);
-    --glass-lowlight: rgba(0,0,0,0.24);
-    --glass-selected: rgba(255,255,255,0.075);
-    --glass-shadow: inset 0 1px 1px var(--glass-highlight), inset 0 -1px 1px var(--glass-lowlight), 0 5px 16px rgba(0,0,0,0.28);
+  /* slideToggle 패널(Progress PR 목록·PACE 상세·운동 내용): JS 인라인 420/340ms → 280/220ms.
+     !important라서 JS의 'transition:none' 리셋도 덮어씀 → 열리는 도중 닫으면
+     scrollHeight로 튀지 않고 현재 높이에서 이어서 닫힘. height 전환은 남겨 transitionend가 계속 발생. */
+  .pr-list[data-open="1"], .pace-detail[data-open="1"], .pres-body[data-open="1"] {
+    transition: height var(--dur-panel) var(--ease-std), opacity 200ms ease, transform var(--dur-panel) var(--ease-std) !important;
   }
-}
-.tabs, .top-pill, .name-chip {
-  background: linear-gradient(135deg, var(--glass-control), transparent 42%, var(--glass-control));
-  background-color: var(--glass-control);
-  border-color: var(--glass-edge);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
-}
-.tab-btn.active {
-  background: linear-gradient(145deg, var(--glass-selected), var(--glass-control));
-  box-shadow: inset 0 1px 1px var(--glass-highlight), inset 0 -1px 1px var(--glass-lowlight), 0 2px 6px rgba(0,0,0,0.075);
-}
-.name-chip {
-  transition: background .22s ease, box-shadow .22s ease, border-color .22s ease;
-}
-.name-chip:hover { background-color: var(--glass-selected); }
-.cal-cell.available {
-  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 2px 6px rgba(0,0,0,0.035);
-}
-.cal-cell.selected {
-  background-color: var(--glass-selected);
-  border-color: var(--glass-edge);
-  box-shadow: inset 0 1px 1px var(--glass-highlight), inset 0 -1px 1px var(--glass-lowlight), 0 2px 8px rgba(0,0,0,0.075);
-}
-button:not(.tab-btn):not(.primary):not(.danger) {
-  box-shadow: inset 0 1px 0 var(--glass-highlight), inset 0 -0.5px 0 var(--glass-lowlight);
-}
-input, select, textarea {
-  transition: border-color .18s ease, box-shadow .18s ease;
-}
-/* Preserve native focus outlines and the original solid input surfaces. */
-input:focus, select:focus, textarea:focus {
-  border-color: var(--border-strong);
-  box-shadow: inset 0 1px 0 var(--glass-highlight);
-}
-/* Only this existing floating control needs to override its inline material. */
-#floating-calc > button {
-  background: linear-gradient(145deg, var(--glass-selected), var(--glass-control)) !important;
-  border-color: var(--glass-edge) !important;
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
-  box-shadow: var(--glass-shadow);
-}
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .tabs, .top-pill, .name-chip { background: var(--surface-1); }
-  #floating-calc > button { background: var(--surface-1) !important; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .reveal-anim, .fade-swap, .cal-cell.selected { animation: none; }
-  button, .tab-btn, .name-chip, .cal-cell, input, select, textarea { transition: none; }
-  button:active { transform: none; }
-  /* Do not disable JS panel transitions: transitionend is functional. */
-}
+  .pr-list[data-open=""], .pace-detail[data-open=""], .pres-body[data-open=""] {
+    transition: height var(--dur-panel-out) var(--ease-std), opacity 160ms ease, transform var(--dur-panel-out) var(--ease-std) !important;
+  }
+  .pace-chev { transition-duration: var(--dur-panel) !important; }
+
+  /* 무게 계산기: 떠 있는 층 → 유리. 패널은 읽기 위해 거의 불투명 */
+  #floating-calc > button {
+    background: var(--glass-bg) !important;
+    border-color: var(--glass-edge) !important;
+    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+    box-shadow: var(--glass-shadow-float);
+  }
+  #floating-calc > div {
+    background: var(--glass-panel) !important;
+    border-color: var(--glass-edge) !important;
+    backdrop-filter: var(--blur-panel); -webkit-backdrop-filter: var(--blur-panel);
+    box-shadow: var(--glass-shadow-float) !important;
+    transform-origin: 100% 100%;
+    transition: max-height 300ms var(--ease-std), opacity 200ms ease, transform 300ms var(--ease-std) !important;
+  }
+  #floating-calc > div:not(.open) { transform: translateY(6px) scale(0.98); pointer-events: none; }
+  #floating-calc > div.open { transform: none; }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .tabs, .top-pill { background: var(--surface-1); }
+    #floating-calc > button, #floating-calc > div { background: var(--surface-1) !important; }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .tabs, .top-pill, #floating-calc > button, #floating-calc > div {
+      background: var(--surface-1) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+    }
+  }
+  @media (prefers-contrast: more) {
+    :root { --border: var(--border-strong); --glass-edge: var(--border-strong); }
+    .tabs, .top-pill, #floating-calc > button, #floating-calc > div { background: var(--surface-1) !important; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal-anim, .fade-swap, .cal-cell.selected { animation: none; }
+    button, .tab-btn, .name-chip, .cal-cell, input, select, textarea, .tabs::before { transition: none !important; }
+    button:active, .tab-btn:active, .name-chip:active { transform: none; }
+    #floating-calc > div:not(.open) { transform: none; }
+    /* transitionend가 동작 조건이라 none 대신 1ms로 즉시 끝냄 */
+    #floating-calc > div { transition: max-height 1ms linear, opacity 1ms linear !important; }
+    .pr-list[data-open], .pace-detail[data-open], .pres-body[data-open] { transition: height 1ms linear, opacity 1ms linear, transform 1ms linear !important; }
+  }
