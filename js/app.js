@@ -25,14 +25,6 @@ function switchTab(tab){
 }
 document.querySelectorAll('.adm-tab').forEach(b => b.onclick = ()=> showAdminSection(b.dataset.sec));
 document.getElementById('adm-exit').onclick = ()=> switchTab('log');
-(()=>{
-  let last = 0;
-  document.getElementById('home-title').addEventListener('click', ()=>{
-    const now = Date.now();
-    if(now - last < 400){ last = 0; switchTab('log'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-    else last = now;
-  });
-})();
 document.getElementById('tab-log').onclick = ()=> switchTab('log');
 document.getElementById('tab-board').onclick = ()=> switchTab('board');
 document.getElementById('tab-profile').onclick = ()=> switchTab('profile');

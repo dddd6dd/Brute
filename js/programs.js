@@ -55,7 +55,7 @@ const MV_HEADER_RE = /^(\d+\s*(sets?|rounds?)\b|\d+x\d+|\d+(-\d+)+(\s+reps?)?$|e
 // 처방 한 줄에서 동작 이름만 뽑아요. 앞의 횟수·세트(8-10, 4x8, AMRAP, "- ", -into-)와
 // 뒤의 무게·높이(135/95#, 24")·퍼센트·@ 이후는 떼요. 영상 등록·표시가 같은 이름을 쓰게 돼요.
 function extractMovementName(line){
-  let s = String(line || '').trim();
+  let s = String(line || '').replace(/\s*\([^)]*[가-힣][^)]*\)/g, '').trim();
   if(!/[a-z]/i.test(s) || /[가-힣]/.test(s) || /:$/.test(s) || /=/.test(s)) return '';
   s = s.replace(/^-into-\s*/i, '').replace(/^-\s+/, '').replace(/^"x"\s+/i, '')
        .replace(/^min\s*\d+\s*:\s*/i, '').replace(/^amrap(\/side)?\s+(?=[a-z])/i, '').replace(/^\d+x\d+(-\d+)?\s+(?=[a-z])/i, '');
@@ -162,8 +162,13 @@ async function renderMovementPicker(){
   const dateEl = document.getElementById('mv-date');
   if(!el || !dateEl) return;
   if(!dateEl.value) dateEl.value = todayStr();
+  // 날짜를 빨리 바꾸면 앞 날짜 응답이 늦게 도착해서 화면을 덮어쓸 수 있어요. 마지막 요청만 그려요.
+  const req = (renderMovementPicker._req = (renderMovementPicker._req || 0) + 1);
+  const date = dateEl.value;
+  el.innerHTML = '<p class="muted" style="font-size:14px; margin:0;">불러오는 중…</p>';
   if(!MV_MAP) await loadMovementVideos();
-  const { data } = await sb.from('programs').select('items').eq('date', dateEl.value).maybeSingle();
+  const { data } = await sb.from('programs').select('items').eq('date', date).maybeSingle();
+  if(req !== renderMovementPicker._req || dateEl.value !== date) return;
   const items = (data && data.items) || [];
   if(!items.length){ el.innerHTML = '<p class="muted" style="font-size:14px; margin:0;">이 날은 프로그램이 없어요.</p>'; return; }
   const bySec = new Map();

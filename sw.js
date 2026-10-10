@@ -1,9 +1,9 @@
-const CACHE_NAME = 'jogym-shell-v63';
+const CACHE_NAME = 'jogym-shell-1.0.1';
 const SHELL_ASSETS = ['./', './index.html', './icon-192.png', './icon-512.png', './manifest.json', './css/style.css', './js/config.js', './js/utils.js', './js/programs.js', './js/charts.js', './js/records.js', './js/pace.js', './js/progress.js', './js/leaderboard.js', './js/profile.js', './js/admin.js', './js/weight-calculator.js', './js/supabase.js', './js/workout-share.js', './js/app.js', './assets/share-fonts/inter-0.woff2', './assets/share-fonts/montserrat-0.woff2', './assets/share-fonts/bebasneue-0.woff2', './assets/share-fonts/anton-0.woff2', './assets/share-fonts/oswald-0.woff2', './assets/share-fonts/barlowcondensed-0.woff2', './assets/share-fonts/barlowcondensed-1.woff2', './assets/share-fonts/spacegrotesk-0.woff2', './assets/share-fonts/jetbrainsmono-0.woff2', './assets/share-fonts/ibmplexmono-0.woff2', './assets/share-fonts/ibmplexmono-1.woff2', './assets/share-fonts/dmserifdisplay-0.woff2', './assets/share-fonts/playfairdisplay-0.woff2', './assets/share-fonts/archivoblack-0.woff2', './assets/share-fonts/robotoslab-0.woff2', './assets/share-fonts/silkscreen-0.woff2'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_ASSETS))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_ASSETS.map((u) => new Request(u, { cache: 'reload' }))))
   );
   self.skipWaiting();
 });
@@ -23,8 +23,10 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
 
+  // cache:'no-cache' — 브라우저 HTTP 캐시(GitHub Pages는 10분)를 건너뛰고 서버에 바뀌었는지 물어봐요.
+  // 배포 직후에도 예전 JS가 남지 않아요. 안 바뀌었으면 서버가 304로 짧게 답해서 느려지지 않아요.
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-cache' })
       .then((res) => {
         if (res.ok) {
           const resClone = res.clone();

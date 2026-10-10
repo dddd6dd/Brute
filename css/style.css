@@ -203,12 +203,38 @@
     padding: 26px 20px; margin-bottom: 24px; gap: 6px;
   }
   .hero-card.card { background: var(--surface-2); }
+  .home-head { display: flex; margin: 0 0 16px; }
+  /* 페이지 맨 아래 조용히: 관리자 진입(5번 탭)과 버전 확인용 */
+  .home-head.home-foot { justify-content: center; margin: 32px 0 0; opacity: .7; }
+  .home-head .top-pill { margin-bottom: 0; font-size: 8.5px; line-height: 1; letter-spacing: 0.08em; gap: 4px; padding: 4px 8px; }
+  .home-head .top-pill .dot { width: 3px; height: 3px; }
   .hero-card .top-pill { position: absolute; top: -9px; left: 20px; margin-bottom: 0; font-size: 8.5px; line-height: 1; letter-spacing: 0.08em; gap: 4px; padding: 4px 8px; }
   .hero-card .top-pill .dot { width: 3px; height: 3px; }
   .hero-card h1 { font-size:30px; letter-spacing: -0.02em; margin: 0; }
   .hero-card .sub { margin: 0; }
 
   /* 캘린더: 칸마다 걸려 있던 backdrop-filter 제거 (한 달 최대 31개 블러 레이어) */
+  /* lb ↔ kg 스위치: 누르면 손잡이가 반대쪽으로 미끄러져요 */
+  .unit-switch { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; align-items: center; flex-shrink: 0;
+    width: 76px; height: 36px; padding: 3px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-0);
+    box-shadow: none; font-family: var(--font-mono); font-size: 13px; cursor: pointer; -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+  .unit-switch .thumb { position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: 999px;
+    background: var(--glass-selected); box-shadow: var(--thumb-shadow); transition: transform 220ms var(--ease-out); }
+  .unit-switch.on .thumb { transform: translateX(100%); }
+  .unit-switch .lbl { position: relative; z-index: 1; text-align: center; color: var(--text-muted); transition: color 220ms ease; line-height: 1; }
+  .unit-switch .lbl.cur { color: var(--text-primary); font-weight: 600; }
+  .unit-switch:active { transform: scale(0.96); }
+
+  /* 오늘 운동: 한 주씩 좌우로 넘기는 날짜 띠 */
+  .week-strip { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .week-strip::-webkit-scrollbar { display: none; }
+  .week-page { flex: 0 0 100%; display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 6px; scroll-snap-align: start; scroll-snap-stop: always; box-sizing: border-box; }
+  .week-strip .cal-cell { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 0 10px; min-height: 52px; }
+  .week-strip .cal-cell .wd { font-family: var(--font-sans, inherit); font-size: 10px; letter-spacing: 0.06em; font-weight: 500; color: var(--text-muted); }
+  .week-strip .cal-cell .dn { font-size: 17px; line-height: 1; }
+  .week-strip .cal-cell.future { opacity: .4; }
+  .week-strip .cal-cell.today::after { bottom: 4px; }
+
   .cal-cell {
     font-family: var(--font-mono); text-align: center; font-size: 14px;
     padding: 7px 0; border-radius: var(--radius); box-sizing: border-box;
@@ -239,9 +265,9 @@
 
   /* 등장: 0.55에서 시작하던 반쯤 보이는 깜빡임 대신 0에서 짧게 */
   @keyframes revealIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-  @keyframes swapIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-  .reveal-anim { animation: revealIn 200ms var(--ease-out); }
-  .fade-swap { animation: swapIn 240ms var(--ease-out); }
+  @keyframes swapIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .reveal-anim { animation: revealIn 240ms var(--ease-out); }
+  .fade-swap { animation: swapIn 280ms var(--ease-out); }
 
   /* slideToggle 패널(Progress PR 목록·PACE 상세·운동 내용): JS 인라인 420/340ms → 280/220ms.
      !important라서 JS의 'transition:none' 리셋도 덮어씀 → 열리는 도중 닫으면
@@ -287,6 +313,7 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .reveal-anim, .fade-swap, .cal-cell.selected { animation: none; }
+    .unit-switch .thumb, .unit-switch .lbl { transition: none; }
     button, .tab-btn, .name-chip, .cal-cell, input, select, textarea, .tabs::before { transition: none !important; }
     button:active, .tab-btn:active, .name-chip:active { transform: none; }
     #floating-calc > div:not(.open) { transform: none; }

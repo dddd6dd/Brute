@@ -125,6 +125,74 @@ function slideToggle(el, open){
 
 // 재사용 가능한 월별 캘린더 선택기. highlightedDates에 있는 날짜는 초록색으로 강조되고,
 // allowAllDays가 true면 강조 안 된 날짜도 클릭 가능해요 (오늘 운동 탭 날짜 선택용).
+// 오늘 운동 탭용 주간 날짜 띠. 월~일 한 주가 한 페이지이고 좌우로 밀어서 넘겨요.
+// 프로그램 있는 날 = available, 미래 날짜는 프로그램이 있을 때만 누를 수 있어요.
+function buildWeekStrip({ highlightedDates, selectedDate, onSelect }){
+  const wrap = document.createElement('div');
+  const set = new Set(highlightedDates || []);
+  const pad2 = n => String(n).padStart(2, '0');
+  const fmt = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  const monday = d => { const x = new Date(d); x.setHours(0,0,0,0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+  const today = todayStr();
+  const sorted = [...set].sort();
+  const now = new Date(today + 'T00:00:00');
+  let start = monday(new Date(now.getTime() - 8 * 7 * 864e5));
+  if(sorted[0]){ const s = monday(new Date(sorted[0] + 'T00:00:00')); if(s < start) start = s; }
+  const minStart = monday(new Date(now.getTime() - 52 * 7 * 864e5));
+  if(start < minStart) start = minStart;
+  const lastDate = sorted.length && sorted[sorted.length - 1] > today ? sorted[sorted.length - 1] : today;
+  const end = monday(new Date(lastDate + 'T00:00:00'));
+  let current = selectedDate || today;
+
+  const label = document.createElement('p');
+  label.className = 'muted';
+  label.style.cssText = 'font-size:13px; margin:0 0 8px;';
+  const strip = document.createElement('div');
+  strip.className = 'week-strip';
+  const pages = [];
+  for(let w = new Date(start); w <= end; w.setDate(w.getDate() + 7)){
+    const page = document.createElement('div');
+    page.className = 'week-page';
+    page.dataset.week = fmt(w);
+    for(let i = 0; i < 7; i++){
+      const d = new Date(w); d.setDate(d.getDate() + i);
+      const ds = fmt(d);
+      const has = set.has(ds), future = ds > today;
+      const clickable = has || !future;
+      const cell = document.createElement('div');
+      cell.className = 'cal-cell' + (clickable ? ' clickable' : '') + (has ? ' available' : '') + (ds === today ? ' today' : '') + (future && !has ? ' future' : '');
+      cell.dataset.date = ds;
+      cell.innerHTML = '<span class="wd">' + ['MON','TUE','WED','THU','FRI','SAT','SUN'][i] + '</span><span class="dn">' + d.getDate() + '</span>';
+      if(clickable) cell.onclick = ()=>{
+        if(current === ds) return;
+        strip.querySelectorAll('.cal-cell.selected').forEach(c => c.classList.remove('selected'));
+        cell.classList.add('selected');
+        current = ds;
+        onSelect(ds);
+      };
+      if(ds === current) cell.classList.add('selected');
+      page.appendChild(cell);
+    }
+    pages.push(page);
+    strip.appendChild(page);
+  }
+  const setLabel = ()=>{
+    const i = Math.round(strip.scrollLeft / Math.max(1, strip.clientWidth));
+    const p = pages[Math.min(pages.length - 1, Math.max(0, i))];
+    if(!p) return;
+    const m = new Date(p.dataset.week + 'T00:00:00'), s = new Date(m); s.setDate(s.getDate() + 6);
+    label.textContent = m.getMonth() === s.getMonth() ? `${m.getFullYear()}년 ${m.getMonth() + 1}월` : `${m.getMonth() + 1}월 – ${s.getMonth() + 1}월`;
+  };
+  strip.addEventListener('scroll', ()=>{ cancelAnimationFrame(strip._raf); strip._raf = requestAnimationFrame(setLabel); }, { passive: true });
+  wrap.appendChild(label);
+  wrap.appendChild(strip);
+  const target = fmt(monday(new Date(current + 'T00:00:00')));
+  const idx = Math.max(0, pages.findIndex(p => p.dataset.week === target));
+  requestAnimationFrame(()=>{ strip.scrollLeft = idx * strip.clientWidth; setLabel(); });
+  setLabel();
+  return { el: wrap };
+}
+
 function buildCalendarPicker({ highlightedDates, initialDate, selectedDate, onSelect, summaryLabel, allowAllDays }){
   const wrap = document.createElement('div');
   const highlightSet = new Set(highlightedDates || []);
@@ -219,3 +287,53 @@ function buildCalendarPicker({ highlightedDates, initialDate, selectedDate, onSe
 
   return { el: wrap, setSelected(date){ currentSelected = date; render(); } };
 }
+
+
+// ---------- 단위 스위치 (lb ↔ kg) ----------
+// 선택지가 lb/kg 두 개뿐인 <select>를 미끄러지는 스위치로 보여줘요. 원래 select는 숨겨서 그대로 두고
+// 값만 바꾼 뒤 change 이벤트를 보내요. 그래서 기존 저장·계산 코드는 하나도 안 바뀌어요.
+function isUnitSelect(sel){
+  if(!sel || sel.tagName !== 'SELECT' || sel.dataset.sw) return false;
+  const v = [...sel.options].map(o => o.value.toLowerCase());
+  return v.length === 2 && v.includes('lb') && v.includes('kg');
+}
+function enhanceUnitSelect(sel){
+  sel.dataset.sw = '1';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'unit-switch';
+  btn.setAttribute('role', 'switch');
+  btn.innerHTML = '<span class="thumb"></span>' + [...sel.options].map(o => '<span class="lbl">' + escapeHtml(o.textContent) + '</span>').join('');
+  const sync = ()=>{
+    const i = Math.max(0, sel.selectedIndex);
+    btn.classList.toggle('on', i === 1);
+    btn.setAttribute('aria-checked', i === 1 ? 'true' : 'false');
+    btn.setAttribute('aria-label', '단위 ' + (sel.options[i] ? sel.options[i].textContent : ''));
+    btn.querySelectorAll('.lbl').forEach((l, j) => l.classList.toggle('cur', j === i));
+  };
+  btn.onclick = e => {
+    e.preventDefault();
+    sel.selectedIndex = sel.selectedIndex === 1 ? 0 : 1;
+    sync();
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    sel.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  sel.addEventListener('change', sync);
+  sel.style.display = 'none';
+  sel.after(btn);
+  sync();
+  // 그린 직후 코드가 select.value를 바꾸는 경우가 있어서 한 번 더 맞춰요.
+  setTimeout(sync, 0);
+  sel._unitSync = sync;
+}
+function enhanceUnitSelects(root){
+  (root || document).querySelectorAll('select').forEach(s => { if(isUnitSelect(s)) enhanceUnitSelect(s); });
+}
+new MutationObserver(muts=>{
+  for(const m of muts) for(const n of m.addedNodes){
+    if(n.nodeType !== 1) continue;
+    if(n.tagName === 'SELECT'){ if(isUnitSelect(n)) enhanceUnitSelect(n); }
+    else if(n.querySelector && n.querySelector('select')) enhanceUnitSelects(n);
+  }
+}).observe(document.body, { childList: true, subtree: true });
+enhanceUnitSelects(document);

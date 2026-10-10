@@ -1,9 +1,10 @@
 
 
 async function renderProfileList(){
+  profileOpenToken++;
   fadeSwap(document.getElementById('profile-list'), document.getElementById('profile-detail'), document.getElementById('profile-item-detail'));
   const el = document.getElementById('profile-list');
-  el.innerHTML = '<p class="muted">불러오고 있어요...</p>';
+  if(!el.querySelector('.name-chip')) el.innerHTML = '<p class="muted">불러오고 있어요...</p>';
   const { data, error } = await sb.from('records').select('name');
   if(error){ el.innerHTML = `<p class="status err">${escapeHtml(error.message)}</p>`; return; }
   const privateNames = await getPrivateProfileNames();
@@ -213,25 +214,34 @@ function buildPrivacyPanel(name, setting){
   return panel;
 }
 
+// 명단 화면을 그대로 둔 채 데이터를 받고, 다 받은 뒤 한 번에 페이드로 넘어가요.
+// "불러오고 있어요"가 먼저 떴다가 내용으로 툭 바뀌던 두 번의 끊김을 없애요. 느린 연결(0.35초+)에서만 로딩 문구를 보여요.
+let profileOpenToken = 0;
 async function showProfileDetail(name){
   const el = document.getElementById('profile-detail');
-  fadeSwap(el, document.getElementById('profile-list'), document.getElementById('profile-item-detail'));
-  el.innerHTML = '<p class="muted">불러오고 있어요...</p>';
+  const token = ++profileOpenToken;
+  let shown = false;
+  const show = ()=>{ if(shown) return; shown = true; fadeSwap(el, document.getElementById('profile-list'), document.getElementById('profile-item-detail')); window.scrollTo({ top: 0, behavior: 'instant' }); };
+  const slow = setTimeout(()=>{ if(token !== profileOpenToken) return; show(); el.innerHTML = '<p class="muted">불러오고 있어요...</p>'; }, 350);
+  const finish = html => { clearTimeout(slow); if(token !== profileOpenToken) return false; if(html != null) el.innerHTML = html; if(shown) reveal(el); else show(); return true; };
 
   const setting = await getProfileSetting(name);
+  if(token !== profileOpenToken) return;
   profileCurrentSetting = setting;
-  if(!(await canViewProfile(name, setting))){ renderLockedProfile(el, name); return; }
+  if(!(await canViewProfile(name, setting))){ if(finish(null)) renderLockedProfile(el, name); return; }
 
   const { data, error } = await sb.from('records').select('*').eq('name', name).order('date', { ascending: true });
-  if(error){ el.innerHTML = `<p class="status err">${escapeHtml(error.message)}</p>`; return; }
-  if(!data || data.length === 0){ el.innerHTML = '<p class="muted">기록이 없어요.</p>'; return; }
+  if(error){ finish(`<p class="status err">${escapeHtml(error.message)}</p>`); return; }
+  if(!data || data.length === 0){ finish('<p class="muted">기록이 없어요.</p>'); return; }
 
   const { data: keyLiftsData } = await sb.from('key_lifts').select('*').eq('name', name).order('lift_name', { ascending: true });
+  if(token !== profileOpenToken) return;
 
   profileCurrentData = data;
   profileCurrentName = name;
   profileCurrentKeyLifts = keyLiftsData || [];
   renderProfileBody(getPreferredUnit());
+  finish(null);
 }
 
 function renderProfileBody(unit){

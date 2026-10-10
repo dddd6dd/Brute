@@ -5,21 +5,14 @@ async function loadDatesForLog(){
   const calendarContainer = document.getElementById('log-date-calendar');
   const hint = document.getElementById('log-date-hint');
   const { data, error } = await sb.from('programs').select('date').order('date', { ascending: false });
-  if(error || !data || data.length === 0){
-    logProgramDates = [];
-    hint.textContent = '';
-    calendarContainer.innerHTML = '';
-    document.getElementById('log-form').innerHTML = '<p class="muted">등록된 프로그램이 없어요. 관리자가 먼저 프로그램을 게시해야 해요.</p>';
-    return;
-  }
-  logProgramDates = data.map(row=>row.date);
+  logProgramDates = (error || !data) ? [] : data.map(row=>row.date);
+  hint.textContent = '';
   const today = todayStr();
-  const initialDate = logProgramDates.includes(today) ? today : logProgramDates[0];
+  const initialDate = (logProgramDates.includes(today) || !logProgramDates.length) ? today : logProgramDates[0];
 
   calendarContainer.innerHTML = '';
-  const picker = buildCalendarPicker({
+  const picker = buildWeekStrip({
     highlightedDates: logProgramDates,
-    initialDate,
     selectedDate: initialDate,
     onSelect: (dateStr)=> handleLogDateChange(dateStr)
   });
@@ -1038,16 +1031,21 @@ async function restoreLogRecords(date, name, personal){
   });
 }
 
+// 오늘 운동 맨 위 프로필 줄. 카드 없이 한 줄로 두고, 변경은 그 자리에서 입력칸으로 바뀌어요(페이드).
+// 새 이름을 확인했을 때만 아래 기록을 다시 그려요. 취소하면 그대로예요.
+const WHO_ROW = 'display:flex; align-items:center; gap:8px; min-height:44px;';
+const WHO_TEXT_BTN = 'height:36px; padding:0 10px; margin-right:-10px; border:none; background:none; box-shadow:none; font-size:14px; color:var(--text-muted); flex-shrink:0;';
 async function buildWhoBar(date){
   const wrap = document.createElement('div');
-  wrap.className = 'card';
-  wrap.style.cssText = 'margin:0 0 16px;';
+  wrap.style.cssText = 'margin:0 0 12px; padding:0 4px;';
   const saved = localStorage.getItem('bruteLogName') || '';
   LOG_CTX.name = '';
   const rerender = ()=> renderLogForm(LOG_CTX.date);
-  const askName = ()=>{
-    wrap.innerHTML = '<div style="display:flex; gap:8px;"><input type="text" class="who-input" list="log-names" placeholder="이름 입력" style="flex:1; min-width:0;" /><button type="button" class="primary who-ok" style="flex-shrink:0;">확인</button></div>'
-      + '<p class="muted" style="font-size:13px; margin:6px 0 0;">한 번 입력하면 이 기기에서는 계속 이 이름으로 기록돼요.</p>';
+  const swapIn = ()=>{ wrap.classList.remove('fade-swap'); void wrap.offsetWidth; wrap.classList.add('fade-swap'); };
+  const askName = (cancel)=>{
+    wrap.innerHTML = '<div style="' + WHO_ROW + '"><input type="text" class="who-input" list="log-names" placeholder="이름" aria-label="이름" style="flex:1; min-width:0;" />'
+      + (cancel ? '<button type="button" class="who-cancel" style="' + WHO_TEXT_BTN + ' margin-right:0;">취소</button>' : '')
+      + '<button type="button" class="primary who-ok" style="flex-shrink:0;">확인</button></div>';
     let dl = document.getElementById('log-names');
     if(!dl){ dl = document.createElement('datalist'); dl.id = 'log-names'; document.body.appendChild(dl); }
     sb.from('records').select('name').then(({ data })=>{ dl.innerHTML = [...new Set((data || []).map(r => r.name).filter(Boolean))].sort().map(n => '<option value="' + escapeAttr(n) + '"></option>').join(''); });
@@ -1055,18 +1053,23 @@ async function buildWhoBar(date){
     const ok = ()=>{
       const n = inp.value.trim();
       if(!n) return;
+      if(n === saved && cancel){ cancel(); return; }
       localStorage.setItem('bruteLogName', n);
       rerender();
     };
     wrap.querySelector('.who-ok').onclick = ok;
-    inp.onkeydown = e => { if(e.key === 'Enter') ok(); };
+    if(cancel) wrap.querySelector('.who-cancel').onclick = cancel;
+    inp.onkeydown = e => { if(e.key === 'Enter') ok(); if(e.key === 'Escape' && cancel) cancel(); };
+    swapIn();
+    if(cancel) inp.focus();
   };
+  const changeBtn = '<button type="button" class="who-change" style="' + WHO_TEXT_BTN + '">변경</button>';
+  const nameEl = n => '<span class="muted" style="font-size:13px; letter-spacing:0.04em; flex-shrink:0;">Profile</span><strong style="font-size:17px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHtml(n) + '</strong>';
   const askPin = (n)=>{
-    wrap.innerHTML = '<div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;"><span class="muted" style="font-size:13px; letter-spacing:0.04em;">Profile</span><strong style="font-size:16px; font-weight:600; flex:1;">' + escapeHtml(n) + '</strong><button type="button" class="who-change" style="height:32px; font-size:14px; padding:0 12px;">변경</button></div>'
-      + '<p class="muted" style="font-size:13px; margin:0 0 8px;">비공개 프로필이라 이 폰에서 PIN을 한 번 넣어야 기록할 수 있어요.</p>'
-      + '<div style="display:flex; gap:8px;"><input type="password" inputmode="numeric" maxlength="6" class="who-pin" placeholder="PIN 4~6자리" style="width:130px; text-align:center; letter-spacing:0.2em;" /><button type="button" class="primary who-pin-ok">확인</button></div>'
+    wrap.innerHTML = '<div style="' + WHO_ROW + '">' + nameEl(n) + changeBtn + '</div>'
+      + '<div style="display:flex; gap:8px;"><input type="password" inputmode="numeric" maxlength="6" class="who-pin" placeholder="PIN" aria-label="PIN" style="width:120px; text-align:center; letter-spacing:0.2em;" /><button type="button" class="primary who-pin-ok">확인</button></div>'
       + '<span class="status who-st"></span>';
-    wrap.querySelector('.who-change').onclick = ()=>{ localStorage.removeItem('bruteLogName'); rerender(); };
+    wrap.querySelector('.who-change').onclick = ()=> askName(()=> askPin(n));
     const pin = wrap.querySelector('.who-pin');
     const go = async ()=>{
       const { data, error } = await sb.rpc('profile_unlock', { p_name: n, p_pin: pin.value.trim() });
@@ -1079,13 +1082,16 @@ async function buildWhoBar(date){
     wrap.querySelector('.who-pin-ok').onclick = go;
     pin.onkeydown = e => { if(e.key === 'Enter') go(); };
   };
+  const showName = ()=>{
+    wrap.innerHTML = '<div style="' + WHO_ROW + '">' + nameEl(saved) + changeBtn + '</div>'
+      + (localStorage.getItem('bruteAutosaveSeen') ? '' : '<p class="muted" style="font-size:13px; margin:0;">입력하면 자동으로 저장돼요.</p>');
+    wrap.querySelector('.who-change').onclick = async ()=>{ await flushLogSaves(); askName(()=>{ showName(); swapIn(); }); };
+  };
   if(!saved){ askName(); return wrap; }
   const setting = await getProfileSetting(saved);
   if(setting && setting.is_private && !(await canViewProfile(saved, setting))){ askPin(saved); return wrap; }
   LOG_CTX.name = saved;
-  wrap.innerHTML = '<div style="display:flex; align-items:center; gap:10px;"><span class="muted" style="font-size:13px; letter-spacing:0.04em;">Profile</span><strong style="font-size:16px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;">' + escapeHtml(saved) + '</strong><button type="button" class="who-change" style="height:32px; font-size:14px; padding:0 12px;">변경</button></div>'
-    + (localStorage.getItem('bruteAutosaveSeen') ? '' : '<p class="muted" style="font-size:13px; margin:6px 0 0;">입력하면 카드마다 자동으로 저장돼요.</p>');
-  wrap.querySelector('.who-change').onclick = async ()=>{ await flushLogSaves(); localStorage.removeItem('bruteLogName'); rerender(); };
+  showName();
   return wrap;
 }
 
@@ -1095,17 +1101,21 @@ async function renderLogForm(date){
   LOG_CTX.cards.clear();
   LOG_CTX.date = date;
   const renderToken = ++LOG_CTX.token;
-  el.innerHTML = '<p class="muted">불러오고 있어요...</p>';
+  // 날짜·이름을 바꿀 때 화면을 비우지 않고 흐리게 둔 채 받아서, 새 내용을 페이드로 바꿔요.
+  if(el.children.length){ el.style.transition = 'opacity 160ms ease'; el.style.opacity = '0.35'; el.style.pointerEvents = 'none'; }
+  else el.innerHTML = '<p class="muted">불러오고 있어요...</p>';
   const { data, error } = await sb.from('programs').select('*').eq('date', date).single();
   if(renderToken !== LOG_CTX.token) return;
   const program = (error || !data) ? { items: [] } : data;
   el.innerHTML = '';
+  el.style.opacity = ''; el.style.pointerEvents = '';
+  el.classList.remove('fade-swap'); void el.offsetWidth; el.classList.add('fade-swap');
   if(!program.items || !program.items.length){
     program.items = [];
     const none = document.createElement('p');
     none.className = 'muted';
     none.style.margin = '0 0 16px';
-    none.textContent = '이 날은 프로그램이 없어요. 아래에서 개인 운동은 기록할 수 있어요.';
+    none.textContent = '프로그램이 없는 날이에요. 개인 운동만 기록할 수 있어요.';
     el.appendChild(none);
   }
 
