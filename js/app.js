@@ -2,8 +2,8 @@
 new MutationObserver(muts=>{
   if(!MV_MAP) return;
   for(const m of muts) for(const n of m.addedNodes){
-    if(n.nodeType !== 1 || n.classList.contains('mv-btn')) continue;
-    if(n.matches('[data-mv]') || n.querySelector('[data-mv]')) decorateMovementVideos(n.matches('[data-mv]') ? n.parentNode : n);
+    if(n.nodeType !== 1 || n.classList.contains('mv-btn') || n.classList.contains('mv-title-btn')) continue;
+    if(n.matches('[data-mv], .item-name') || n.querySelector('[data-mv], .item-name')) decorateMovementVideos(n.matches('[data-mv], .item-name') ? n.parentNode : n);
   }
 }).observe(document.body, { childList: true, subtree: true });
 loadMovementVideos();

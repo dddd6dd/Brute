@@ -51,15 +51,25 @@ function formatPrescribed(text){
 }
 
 // ---------- 동작 영상: 동작 이름 → 유튜브 링크 (movement_videos 테이블) ----------
-const MV_HEADER_RE = /^(\d+\s*(sets?|rounds?)\b|\d+x\d+|\d+(-\d+)+|emom|e\d+mom|amrap|for time|each for time|build to|every|then$|rpe\b|rest\b|min \d|scale|goal|target|time cap|x\d)/i;
+const MV_HEADER_RE = /^(\d+\s*(sets?|rounds?)\b|\d+x\d+|\d+(-\d+)+(\s+reps?)?$|emom|e\d+mom|amrap|for time|for quality|each for time|build to|every|then$|rpe\b|rest\b|min \d|scale|goal|target|time cap|x\d|\d+x(amrap|\d)|\d+(\/\d+)?#|reps?\b|complex$|cap$)/i;
+// 처방 한 줄에서 동작 이름만 뽑아요. 앞의 횟수·세트(8-10, 4x8, AMRAP, "- ", -into-)와
+// 뒤의 무게·높이(135/95#, 24")·퍼센트·@ 이후는 떼요. 영상 등록·표시가 같은 이름을 쓰게 돼요.
 function extractMovementName(line){
   let s = String(line || '').trim();
-  if(!/[a-z]/i.test(s) || /[가-힣]/.test(s) || /:$/.test(s) || /^[(+\-*]/.test(s) || MV_HEADER_RE.test(s)) return '';
-  s = s.replace(/^(:?\d+(:\d+)?(\.\d+)*(\/\d+)?(x|ft|m|cal)?(\/side)?)(\s+(seconds?|secs?)(\/side)?)?\s+/i, '');
-  s = s.replace(/\s*@.*$/, '').replace(/\s*\(.*?\)/g, '').replace(/\s*-into-.*$/i, '').trim();
+  if(!/[a-z]/i.test(s) || /[가-힣]/.test(s) || /:$/.test(s) || /=/.test(s)) return '';
+  s = s.replace(/^-into-\s*/i, '').replace(/^-\s+/, '').replace(/^"x"\s+/i, '')
+       .replace(/^min\s*\d+\s*:\s*/i, '').replace(/^amrap(\/side)?\s+(?=[a-z])/i, '').replace(/^\d+x\d+(-\d+)?\s+(?=[a-z])/i, '');
+  if(/^[(+\-*@]/.test(s) || MV_HEADER_RE.test(s)) return '';
+  s = s.replace(/^(:?\d+(:\d+)?(-\d+)*(\.\d+)*(\/\d+)?(x|ft|m|cal)?(\/side)?)(\s+(seconds?|secs?)(\/side)?)?\s+/i, '');
+  s = s.replace(/^(in the remaining time\s+)?(max\s+)?(calories?\s+|cal\s+)?/i, '');
+  s = s.replace(/\s*@.*$/, '').replace(/\s*\(.*?\)/g, '').replace(/\s*-into-.*$/i, '').replace(/\s*:.*$/, '').replace(/\s+\d.*$/, '').trim();
+  if(MV_HEADER_RE.test(s) || /\breps?\b/i.test(s)) return '';
   return (s.length >= 3 && /[a-z]{3}/i.test(s)) ? s : '';
 }
-const normMv = s => String(s || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(w => w.length > 3 ? w.replace(/s$/, '') : w).join('');
+// 대소문자·띄어쓰기·복수형(s)을 무시하고 비교해요. Pull Up = Pull Ups.
+const normMv = s => String(s || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).map(w => w.length > 2 ? w.replace(/s$/, '') : w).join('');
+// 운동 제목(Push Jerk, Barbell Bench Press)도 동작이면 영상을 달 수 있어요. 여러 동작을 묶은 제목은 빼요.
+const isMovementTitle = n => !!n && !/\+|warm ?up|brutal|interval|skill|circuit|complex|emom|amrap|primer|work\b|\d\s*$/i.test(n);
 let MV_MAP = null;
 async function loadMovementVideos(){
   const { data, error } = await sb.from('movement_videos').select('name, url').order('name');
@@ -73,7 +83,6 @@ function findMovementVideo(name, line){
   const k = normMv(name);
   return MV_MAP.get(k) || null;
 }
-const MV_BTN = 'display:inline-flex; align-items:center; gap:3px; margin-left:6px; padding:0 8px; height:22px; border-radius:999px; font-size:12px; font-weight:500; line-height:1; vertical-align:middle; text-decoration:none; cursor:pointer; white-space:nowrap;';
 const MV_ICON = '<svg width="20" height="14" viewBox="0 0 20 14" aria-hidden="true"><rect width="20" height="14" rx="3.5" fill="#FF0000"/><path d="M8 4v6l5.2-3z" fill="#fff"/></svg>';
 // 영상 아이콘은 동작 이름 왼쪽 고정 칸에 둬요. 같은 블록 안에 영상이 하나라도 있으면
 // 그 블록의 동작 줄을 모두 같은 칸만큼 들여서, 아이콘과 글자 시작점이 세로로 맞아요.
@@ -103,6 +112,26 @@ function decorateMovementVideos(root){
       a.onclick = e => e.stopPropagation();
       div.prepend(a);
     });
+  });
+  // 제목 옆 아이콘: 처방 줄에 같은 동작이 이미 있으면 달지 않아요.
+  (root || document).querySelectorAll('.item-name').forEach(span=>{
+    const box = span.parentNode;
+    if(!box) return;
+    box.querySelectorAll('.mv-title-btn').forEach(b => b.remove());
+    const name = span.textContent.trim();
+    if(!isMovementTitle(name)) return;
+    const hit = MV_MAP.get(normMv(name));
+    if(!hit) return;
+    const card = span.closest('.card') || box.parentNode;
+    if(card && [...card.querySelectorAll('[data-mv]')].some(d => normMv(d.dataset.mv) === normMv(name))) return;
+    const a = document.createElement('a');
+    a.className = 'mv-title-btn';
+    a.href = hit.url; a.target = '_blank'; a.rel = 'noopener';
+    a.setAttribute('aria-label', name + ' 영상 보기');
+    a.style.cssText = 'display:inline-flex; align-items:center; justify-content:center; width:36px; height:32px; margin:-8px -8px -8px -2px; vertical-align:middle; line-height:0; -webkit-tap-highlight-color:transparent;';
+    a.innerHTML = MV_ICON;
+    a.onclick = e => e.stopPropagation();
+    span.after(a);
   });
 }
 function normalizeVideoUrl(u){
@@ -142,6 +171,7 @@ async function renderMovementPicker(){
     const sec = stripLabelPrefix(it.section || '기타');
     if(!bySec.has(sec)) bySec.set(sec, []);
     const list = bySec.get(sec);
+    if(isMovementTitle(it.name) && !list.some(x => normMv(x) === normMv(it.name))) list.push(it.name);
     splitPrescribedLines(it.prescribed).forEach(l=>{
       const n = extractMovementName(l);
       if(n && !list.some(x => normMv(x) === normMv(n))) list.push(n);
